@@ -44,6 +44,7 @@ local:
   url     : 'http://localhost/'
   user    : 'admin'
   pass    : 'secret'
+  enabled : True
 ```
 
 ---
