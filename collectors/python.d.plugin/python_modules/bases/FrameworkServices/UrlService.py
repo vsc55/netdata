@@ -115,26 +115,45 @@ class UrlService(SimpleService):
             return None
 
     def _get_raw_data(self, url=None, manager=None, **kwargs):
+        # Backward compatibility
         """
         Get raw data from http request
         :return: str
         """
-        try:
-            status, data = self._get_raw_data_with_status(url, manager, **kwargs)
-        except Exception as error:
-            self.error('Url: {url}. Error: {error}'.format(url=url or self.url, error=error))
-            return None
+        _, data = self._get_raw_data_advanced(url, manager, **kwargs)
+        return data
 
-        if status == 200:
-            return data
-        else:
-            self.debug('Url: {url}. Http response status code: {code}'.format(url=url or self.url, code=status))
-            return None
 
     def _get_raw_data_with_status(self, url=None, manager=None, retries=1, redirect=True, **kwargs):
+        # Backward compatibility
         """
         Get status and response body content from http request. Does not catch exceptions
-        :return: int, str
+        :return: int, HTTPResponse, str
+        """
+        status, _, data = self._get_raw_data_with_status_advanced(url, manager, retries, redirect, **kwargs)
+        return status, data
+
+    def _get_raw_data_advanced(self, url=None, manager=None, **kwargs):
+        """
+        Get headers and raw data from http request
+        :return: str
+        """
+        try:
+            status, headers, data = self._get_raw_data_with_status_advanced(url, manager, **kwargs)
+        except Exception as error:
+            self.error('Url: {url}. Error: {error}'.format(url=url or self.url, error=error))
+            return None, None
+
+        if status == 200:
+            return headers, data
+        else:
+            self.debug('Url: {url}. Http response status code: {code}'.format(url=url or self.url, code=status))
+            return None, None
+
+    def _get_raw_data_with_status_advanced(self, url=None, manager=None, retries=1, redirect=True, **kwargs):
+        """
+        Get status, headers and response body content from http request. Does not catch exceptions
+        :return: int, HTTPResponse, str
         """
         url = url or self.url
         manager = manager or self._manager
@@ -155,8 +174,8 @@ class UrlService(SimpleService):
             **kwargs
         )
         if isinstance(response.data, str):
-            return response.status, response.data
-        return response.status, response.data.decode(errors='ignore')
+            return response.status, response.headers, response.data
+        return response.status, response.headers, response.data.decode(errors='ignore')
 
     def check(self):
         """
