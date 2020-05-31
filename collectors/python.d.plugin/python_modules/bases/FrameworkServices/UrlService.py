@@ -115,31 +115,20 @@ class UrlService(SimpleService):
             return None
 
     def _get_raw_data(self, url=None, manager=None, **kwargs):
-        # Backward compatibility
         """
         Get raw data from http request
         :return: str
         """
-        _, data = self._get_raw_data_advanced(url, manager, **kwargs)
+        _, data = self._get_raw_data_with_headers(url, manager, **kwargs)
         return data
 
-
-    def _get_raw_data_with_status(self, url=None, manager=None, retries=1, redirect=True, **kwargs):
-        # Backward compatibility
-        """
-        Get status and response body content from http request. Does not catch exceptions
-        :return: int, HTTPResponse, str
-        """
-        status, _, data = self._get_raw_data_with_status_advanced(url, manager, retries, redirect, **kwargs)
-        return status, data
-
-    def _get_raw_data_advanced(self, url=None, manager=None, **kwargs):
+    def _get_raw_data_with_headers(self, url=None, manager=None, **kwargs):
         """
         Get headers and raw data from http request
         :return: str
         """
         try:
-            status, headers, data = self._get_raw_data_with_status_advanced(url, manager, **kwargs)
+            status, headers, data = self._get_raw_data_with_status_and_headers(url, manager, **kwargs)
         except Exception as error:
             self.error('Url: {url}. Error: {error}'.format(url=url or self.url, error=error))
             return None, None
@@ -150,7 +139,15 @@ class UrlService(SimpleService):
             self.debug('Url: {url}. Http response status code: {code}'.format(url=url or self.url, code=status))
             return None, None
 
-    def _get_raw_data_with_status_advanced(self, url=None, manager=None, retries=1, redirect=True, **kwargs):
+    def _get_raw_data_with_status(self, url=None, manager=None, retries=1, redirect=True, **kwargs):
+        """
+        Get status and response body content from http request. Does not catch exceptions
+        :return: int, HTTPResponse, str
+        """
+        status, _, data = self._get_raw_data_with_status_and_headers(url, manager, retries, redirect, **kwargs)
+        return status, data
+
+    def _get_raw_data_with_status_and_headers(self, url=None, manager=None, retries=1, redirect=True, **kwargs):
         """
         Get status, headers and response body content from http request. Does not catch exceptions
         :return: int, HTTPResponse, str

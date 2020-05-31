@@ -256,7 +256,7 @@ class Service(UrlService):
         self.body = json.dumps(body)
 
         try:
-            headers, raw = self._get_raw_data_advanced()
+            headers, raw = self._get_raw_data_with_headers()
             cookies = self._headers_get_cookies(headers)
             self._cookie_session = "" if not 'SESSION_CONNECT_WEBADMIN' in cookies else cookies['SESSION_CONNECT_WEBADMIN']
             json_data = json.loads(raw)
@@ -284,7 +284,7 @@ class Service(UrlService):
         self.body = json.dumps(body)
 
         try:
-            _, raw = self._get_raw_data_advanced()
+            raw = self._get_raw_data()
             json_data = json.loads(raw)
 
         except (ValueError, AttributeError):
@@ -310,7 +310,7 @@ class Service(UrlService):
         self.body = json.dumps(body)
 
         try:
-            _, raw = self._get_raw_data_advanced()
+            _, raw = self._get_raw_data_with_headers()
             json_data = json.loads(raw)
 
         except (ValueError, AttributeError):
@@ -328,29 +328,23 @@ class Service(UrlService):
             return json_data['result']['statistics']
 
     def _conversor_units(self, value, unit):
-        data_return = int(value)
-        t_unit = str(unit)
+        ls_units = {
+            'Bytes'     : 0,
+            'KiloBytes' : 1,
+            'MegaBytes' : 2,
+            'GigaBytes' : 3,
+            'TeraBytes' : 4,
+        }
+        if not unit or unit not in ls_units:
+            data_return = -1
+        else:
+            data_return = int(value) * (1024 ** ls_units[unit])
 
-        while t_unit:
-            t_unit = t_unit.replace("Bytes", "")
-
-            if t_unit == "Kilo":
-                t_unit = "Bytes"
-
-            if t_unit == "Mega":
-                t_unit = "Kilo"
-            
-            if t_unit == "Giga":
-                t_unit = "Mega"
-            
-            if t_unit == "Tera":
-                t_unit = "Giga"
-
-            if t_unit:
-                data_return = data_return * 1024
-
+        # data_return = int(value)
+        # for _ in range(ls_units[unit]):
+        #     data_return = data_return * 1024
+        
         return data_return
-
 
     def check(self):
         if not self._enabled:
