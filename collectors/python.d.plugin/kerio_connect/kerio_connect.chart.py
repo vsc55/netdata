@@ -335,14 +335,10 @@ class Service(UrlService):
             'GigaBytes' : 3,
             'TeraBytes' : 4,
         }
-        if not unit or unit not in ls_units:
-            data_return = -1
-        else:
+        if unit and unit in ls_units:
             data_return = int(value) * (1024 ** ls_units[unit])
-
-        # data_return = int(value)
-        # for _ in range(ls_units[unit]):
-        #     data_return = data_return * 1024
+        else:
+            data_return = -1
         
         return data_return
 
