@@ -12,6 +12,7 @@ Monitors the leases database to show all active leases for given pools.
 
 -   dhcpd leases file MUST BE readable by Netdata
 -   pools MUST BE in CIDR format
+-   'python-ipaddress' package is needed
 
 It produces:
 
