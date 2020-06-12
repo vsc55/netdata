@@ -171,7 +171,7 @@ CHARTS = {
     },
 
     'greylisting': {
-        'options': [None, 'Messages', 'count', 'Greylisting Messages', 'kerio_connect.greylisting', 'line'],
+        'options': [None, 'Messages', 'Msg', 'Greylisting Messages', 'kerio_connect.greylisting', 'line'],
         'lines': [
             ['greylisting_messagesAccepted', 'Accepted'],
             ['greylisting_messagesDelayed', 'Delayed'],
@@ -208,27 +208,25 @@ CHARTS = {
     },
 
     'smtpClient': {
-        'options': [None, 'Number Total', 'Count', 'SMTP Client', 'kerio_connect.smtpClient', 'line'],
+        'options': [None, 'Connections', 'Connect', 'SMTP Client', 'kerio_connect.smtpClient', 'line'],
         'lines': [
-            ['smtpClient_connectionAttempts', 'Connect attempts'],
-            ['smtpClient_dnsFailures', 'DNS lookup failure'],
-            ['smtpClient_connectionFailures', 'Connect failed'],
-            ['smtpClient_connectionLosses', 'Connect lost'],
+            ['smtpClient_connectionAttempts', 'Attempts'],
+            ['smtpClient_dnsFailures', 'DNS Failure'],
+            ['smtpClient_connectionFailures', 'Failed'],
+            ['smtpClient_connectionLosses', 'Lost'],
         ]
     },
 
     'pop3Client': {
-        'options': [None, 'Number Total', 'Count', 'POP3 Client', 'kerio_connect.pop3Client', 'line'],
+        'options': [None, 'Connections', 'Connect', 'POP3 Client', 'kerio_connect.pop3Client', 'line'],
         'lines': [
-            ['pop3Client_connectionAttempts', 'Connect attempts'],
-            ['pop3Client_connectionFailures', 'Connect failed'],
-            ['pop3Client_authenticationFailures', 'Authentication failure'],
-            ['pop3Client_totalDownloads', 'Messeages downloaded'],
+            ['pop3Client_connectionAttempts', 'Attempts'],
+            ['pop3Client_connectionFailures', 'Failed'],
         ]
     },
 
     'serversTotalIncomingConnections': {
-        'options': [None, 'Incoming Connections', 'connections', 'Incoming Connections', 'kerio_connect.serversTotalIncomingConnections', 'line'],
+        'options': [None, 'Incoming Connections', 'Connections', 'Incoming Connections', 'kerio_connect.serversTotalIncomingConnections', 'line'],
         'lines': [
             ['smtpServer_totalIncomingConnections', 'SMTP'],
             ['pop3Server_totalIncomingConnections', 'POP3'],
@@ -247,6 +245,7 @@ CHARTS = {
             ['imapServer_authenticationFailures', 'IMAP'],
             ['xmppServer_authenticationFailures', 'XMPP'],
             ['ldapServer_authenticationFailures', 'LDAP'],
+            ['pop3Client_authenticationFailures', 'POP3 Cli'],
         ]
     },
 
@@ -271,6 +270,7 @@ CHARTS = {
         'options': [None, 'Messages', 'count', 'Messages', 'kerio_connect.messages', 'line'],
         'lines': [
             ['pop3Server_sentMessages', 'POP3 Sent'],
+            ['pop3Client_totalDownloads', 'POP3 Cli Download'],
             ['smtpServer_acceptedMessages', 'SMTP Accepted'],
         ]
     },
