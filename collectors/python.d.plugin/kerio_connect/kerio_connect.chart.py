@@ -10,6 +10,9 @@ from bases.FrameworkServices.UrlService import UrlService
 
 KERIO_CONNECT_STATISTICS = [
     'start',
+    'uptime.days',
+    'uptime.hours',
+    'uptime.minutes',
     'antivirus.checkedAttachments',
     'antivirus.foundViruses',
     'antivirus.prohibitedTypes',
@@ -134,7 +137,7 @@ CHARTS = {
     'uptime': {
         'options': [None, 'Service Uptime', 'minuts', 'Server Uptime', 'kerio_connect.uptime', 'line'],
         'lines': [
-            ['uptime']
+            ['uptime_all', 'uptime', 'absolute']
         ]
     },
 
@@ -504,7 +507,7 @@ class Service(UrlService):
             data_return = int(value) * (1024 ** ls_units[unit])
         else:
             data_return = -1
-            
+
         return data_return
 
     def check(self):
@@ -529,7 +532,7 @@ class Service(UrlService):
                 #     "hours": 4,
                 #     "minutes": 41
                 # }
-                'uptime': int( datos['uptime']['minutes'] + (datos['uptime']['hours'] * 60) + ( (datos['uptime']['days'] * 60) * 24 ) ),
+                'uptime_all': int( datos['uptime']['minutes'] + (datos['uptime']['hours'] * 60) + ( (datos['uptime']['days'] * 60) * 24 ) ),
             }
             data_return.update(uptime_fix)
 
@@ -579,8 +582,7 @@ def fetch_data(raw_data, metrics, fun_process = None):
 
 
 # # "start": 1555847378,
-# #       INFO: Fecha y hora en formato UNIX del inicio de las estadisticas.
-# 'start': int( datos['start'] ),
+# # INFO: Fecha y hora en formato UNIX del inicio de las estadisticas.
 
 # # "other": {
 # #     "largest": {
