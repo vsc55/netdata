@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 # Description: kerio connect netdata python.d module
-# Author: vsc55 (vsc55@cerebelum.net)
+# Author: Javier Pastor Aka VSC55 (vsc55@cerebelum.net)
 # SPDX-License-Identifier: GPL-3.0-or-later
 
+import inspect
 import json
 
 from requests import session
@@ -152,125 +153,125 @@ CHARTS = {
     'antivirus': {
         'options': [None, 'Virus', 'count', 'Antivirus', 'kerio_connect.antivirus', 'line'],
         'lines': [
-            ['antivirus_checkedAttachments', 'Attachments', 'incremental'],
-            ['antivirus_foundViruses', 'Viruses found', 'incremental'],
-            ['antivirus_prohibitedTypes', 'Prohibited filename/MIME types found', 'incremental'],
+            ['antivirus_checkedAttachments', 'Attachments'],
+            ['antivirus_foundViruses', 'Viruses'],
+            ['antivirus_prohibitedTypes', 'Prohibited'],
         ]
     },
 
     'spam': {
-        'options': [None, 'Messages Spam', 'count', 'Spam', 'kerio_connect.spam', 'line'],
+        'options': [None, 'Messages Spam', 'Msg', 'Spam', 'kerio_connect.spam', 'line'],
         'lines': [
-            ['spam_checked', 'Msg Checked', 'incremental'],
-            ['spam_tagged', 'Tagged', 'incremental'],
-            ['spam_rejected', 'Rejected', 'incremental'],
-            ['spam_markedAsSpam', 'Spam Marked', 'incremental'],
-            ['spam_markedAsNotSpam', 'non-spam Marked', 'incremental'],
+            ['spam_checked', 'Checked'],
+            ['spam_tagged', 'Tagged'],
+            ['spam_rejected', 'Rejected'],
+            ['spam_markedAsSpam', 'Spam Marked'],
+            ['spam_markedAsNotSpam', 'Non-Spam Marked'],
         ]
     },
 
     'greylisting': {
         'options': [None, 'Messages', 'count', 'Greylisting Messages', 'kerio_connect.greylisting', 'line'],
         'lines': [
-            ['greylisting_messagesAccepted', 'Accepted', 'incremental'],
-            ['greylisting_messagesDelayed', 'Delayed', 'incremental'],
-            ['greylisting_messagesSkipped', 'Skipped', 'incremental'],
+            ['greylisting_messagesAccepted', 'Accepted'],
+            ['greylisting_messagesDelayed', 'Delayed'],
+            ['greylisting_messagesSkipped', 'Skipped'],
         ]
     },
 
     'deliveryStatus': {
-        'options': [None, 'Notifications sent', 'count', 'Delivery notifications', 'kerio_connect.deliveryStatus', 'line'],
+        'options': [None, 'Notifications Sent', 'count', 'Delivery Notifications', 'kerio_connect.deliveryStatus', 'line'],
         'lines': [
-            ['deliveryStatus_success', 'Success', 'incremental'],
-            ['deliveryStatus_delay', 'Delay', 'incremental'],
-            ['deliveryStatus_failure', 'Failure', 'incremental'],
+            ['deliveryStatus_success', 'Success'],
+            ['deliveryStatus_delay', 'Delay'],
+            ['deliveryStatus_failure', 'Failure'],
         ]
     },
 
     'antibombing': {
-        'options': [None, 'Number Total', 'count', 'Antibombing', 'kerio_connect.antibombing', 'line'],
+        'options': [None, 'Rejected', 'count', 'Antibombing', 'kerio_connect.antibombing', 'line'],
         'lines': [
-            ['antibombing_rejectedConnections', 'Connections rejected', 'incremental'],
-            ['antibombing_rejectedMessages', 'Rejected Messages', 'incremental'],
-            ['antibombing_rejectedHarvestAttacks', 'Harvest Attacks detected', 'incremental'],
+            ['antibombing_rejectedConnections', 'Connections'],
+            ['antibombing_rejectedMessages', 'Messages'],
+            ['antibombing_rejectedHarvestAttacks', 'Harvest Attacks'],
         ]
     },
 
     'dnsResolver': {
         'options': [None, 'Number Total', 'Record Queries', 'DNS Resolvers', 'kerio_connect.dnsResolver', 'line'],
         'lines': [
-            ['dnsResolver_hostnameQueries', 'A (hostnames)', 'incremental'],
-            ['dnsResolver_cachedHostnameQueries', 'A Cached', 'incremental'],
-            ['dnsResolver_mxQueries', 'MX', 'incremental'],
-            ['dnsResolver_cachedMxQueries', 'MX Cache', 'incremental'],
+            ['dnsResolver_hostnameQueries', 'A (hostnames)'],
+            ['dnsResolver_cachedHostnameQueries', 'A Cached'],
+            ['dnsResolver_mxQueries', 'MX'],
+            ['dnsResolver_cachedMxQueries', 'MX Cache'],
         ]
     },
 
     'smtpClient': {
         'options': [None, 'Number Total', 'Count', 'SMTP Client', 'kerio_connect.smtpClient', 'line'],
         'lines': [
-            ['smtpClient_connectionAttempts', 'Connect attempts', 'incremental'],
-            ['smtpClient_dnsFailures', 'DNS lookup failure', 'incremental'],
-            ['smtpClient_connectionFailures', 'Connect failed', 'incremental'],
-            ['smtpClient_connectionLosses', 'Connect lost', 'incremental'],
+            ['smtpClient_connectionAttempts', 'Connect attempts'],
+            ['smtpClient_dnsFailures', 'DNS lookup failure'],
+            ['smtpClient_connectionFailures', 'Connect failed'],
+            ['smtpClient_connectionLosses', 'Connect lost'],
         ]
     },
 
     'pop3Client': {
         'options': [None, 'Number Total', 'Count', 'POP3 Client', 'kerio_connect.pop3Client', 'line'],
         'lines': [
-            ['pop3Client_connectionAttempts', 'Connect attempts', 'incremental'],
-            ['pop3Client_connectionFailures', 'Connect failed', 'incremental'],
-            ['pop3Client_authenticationFailures', 'Authentication failure', 'incremental'],
-            ['pop3Client_totalDownloads', 'Messeages downloaded', 'incremental'],
+            ['pop3Client_connectionAttempts', 'Connect attempts'],
+            ['pop3Client_connectionFailures', 'Connect failed'],
+            ['pop3Client_authenticationFailures', 'Authentication failure'],
+            ['pop3Client_totalDownloads', 'Messeages downloaded'],
         ]
     },
 
     'serversTotalIncomingConnections': {
         'options': [None, 'Incoming Connections', 'connections', 'Incoming Connections', 'kerio_connect.serversTotalIncomingConnections', 'line'],
         'lines': [
-            ['smtpServer_totalIncomingConnections', 'SMTP', 'incremental'],
-            ['pop3Server_totalIncomingConnections', 'POP3', 'incremental'],
-            ['imapServer_totalIncomingConnections', 'IMAP', 'incremental'],
-            ['xmppServer_totalIncomingConnections', 'XMPP', 'incremental'],
-            ['ldapServer_totalIncomingConnections', 'LDAP', 'incremental'],
-            ['webServer_totalIncomingConnections', 'Web', 'incremental'],
+            ['smtpServer_totalIncomingConnections', 'SMTP'],
+            ['pop3Server_totalIncomingConnections', 'POP3'],
+            ['imapServer_totalIncomingConnections', 'IMAP'],
+            ['xmppServer_totalIncomingConnections', 'XMPP'],
+            ['ldapServer_totalIncomingConnections', 'LDAP'],
+            ['webServer_totalIncomingConnections', 'Web'],
         ]
     },
 
     'serversAuthenticationFailures': {
         'options': [None, 'Authentication Failures', 'count', 'Authentication Failures', 'kerio_connect.serversAuthenticationFailures', 'line'],
         'lines': [
-            ['smtpServer_authenticationFailures', 'SMTP', 'incremental'],
-            ['pop3Server_authenticationFailures', 'POP3', 'incremental'],
-            ['imapServer_authenticationFailures', 'IMAP', 'incremental'],
-            ['xmppServer_authenticationFailures', 'XMPP', 'incremental'],
-            ['ldapServer_authenticationFailures', 'LDAP', 'incremental'],
+            ['smtpServer_authenticationFailures', 'SMTP'],
+            ['pop3Server_authenticationFailures', 'POP3'],
+            ['imapServer_authenticationFailures', 'IMAP'],
+            ['xmppServer_authenticationFailures', 'XMPP'],
+            ['ldapServer_authenticationFailures', 'LDAP'],
         ]
     },
 
     'ldapServer': {
         'options': [None, 'Searchs', 'count', 'LDAP Server', 'kerio_connect.ldapServer', 'line'],
         'lines': [
-            ['ldapServer_totalSearchRequests', 'Searchs', 'incremental'],
+            ['ldapServer_totalSearchRequests', 'Searchs'],
         ]
     },
 
     'smtpServer': {
         'options': [None, 'Connections', 'Connections', 'SMTP Server', 'kerio_connect.smtpServer', 'line'],
         'lines': [
-            ['smtpServer_authenticationAttempts', 'Incomming', 'incremental'],
-            ['smtpServer_lostConnections', 'Lost', 'incremental'],
-            ['smtpServer_rejectedByBlacklist', 'Rejected by blacklist', 'incremental'],
-            ['smtpServer_rejectedRelays', 'Relay attempts rejected by antispam', 'incremental'],
+            ['smtpServer_authenticationAttempts', 'Incomming'],
+            ['smtpServer_lostConnections', 'Lost'],
+            ['smtpServer_rejectedByBlacklist', 'Rejected by blacklist'],
+            ['smtpServer_rejectedRelays', 'Relay attempts rejected by antispam'],
         ]
     },
 
     'messages': {
         'options': [None, 'Messages', 'count', 'Messages', 'kerio_connect.messages', 'line'],
         'lines': [
-            ['pop3Server_sentMessages', 'POP3 Sent', 'incremental'],
-            ['smtpServer_acceptedMessages', 'SMTP Accepted', 'incremental'],
+            ['pop3Server_sentMessages', 'POP3 Sent'],
+            ['smtpServer_acceptedMessages', 'SMTP Accepted'],
         ]
     },
 
@@ -360,7 +361,7 @@ class Service(UrlService):
         self.url = self.configuration.get('url', 'http://localhost/admin/api/jsonrpc/')
         self.method = "POST"
         self.request_timeout = 5
-        self.update_every = self.configuration.get('update_every', 10)
+        self.update_every = self.configuration.get('update_every', 15)
         self._enabled = self.configuration.get('enabled', True)
         self._api_user = self.configuration.get('user', '')
         self._api_pass = self.configuration.get('pass', '')
@@ -400,8 +401,22 @@ class Service(UrlService):
         self._api_token = ""
         self._cookie_session = ""
 
-    def _login(self):
+    def _check_is_get_error(self, json_data):
+        if 'error' in json_data:
+            err_data = json_data['error']
+            caller_name = inspect.stack()[1][3]
+            self.error('{name}() failed. Error Code: {code}. Error: {error}'.format(name=caller_name, code=err_data['code'], error=err_data['message']))
+            return False
+        else:
+            return True
+
+    def isLogin(self):
         if self._api_token:
+            return True
+        return False
+
+    def _login(self):
+        if self.isLogin():
             self._logout()
 
         self._clean()
@@ -422,28 +437,29 @@ class Service(UrlService):
 
         try:
             headers, raw = self._get_raw_data_with_headers()
-            cookies = self._headers_get_cookies(headers)
-            self._cookie_session = "" if not 'SESSION_CONNECT_WEBADMIN' in cookies else cookies['SESSION_CONNECT_WEBADMIN']
             json_data = json.loads(raw)
 
-        except (ValueError, AttributeError):
-            self.debug("Login Exception!")
+            if self._check_is_get_error(json_data):
+                cookies = self._headers_get_cookies(headers)
+                self._cookie_session = "" if not 'SESSION_CONNECT_WEBADMIN' in cookies else cookies['SESSION_CONNECT_WEBADMIN']
+                self._api_token = json_data['result']['token']
+
+                self.debug("Login OK.")
+                return True
+
+        except Exception as error:
+            self.error('login() error:', str(error))
             return False
 
         finally:
             self.body = ""
 
-        if 'error' in json_data:
-            self.debug("Login ERR!")
-            return False
-        else:
-            self.debug("Login OK!")
-            self._api_token = json_data['result']['token']
-            return True
-
     def _logout(self):
+        if not self.isLogin():
+            self._clean()
+            return True
+        
         self._header_update()
-
         body = dict(self._default_body)
         body['method'] = "Session.logout"
         self.body = json.dumps(body)
@@ -452,45 +468,101 @@ class Service(UrlService):
             raw = self._get_raw_data()
             json_data = json.loads(raw)
 
-        except (ValueError, AttributeError):
-            self.debug("Logout Exception!")
+            if self._check_is_get_error(json_data):
+                self.debug("Logout OK.")
+                return True
+
+        except Exception as error:
+            self.error('logout() error:', str(error))
             return False
         
         finally:
             self.body = ""
             self._clean()
 
-        if 'error' in json_data:
-            self.debug("Logout Error!!!")
-            return False
-        else:
-            self.debug("Logout OK!")
-            return True
-
     def _get_statistics(self):
+        if not self.isLogin():
+            self.error('get_statistics() failed, no login in the system.')
+            return None
+        
         self._header_update()
-
         body = dict(self._default_body)
         body['method'] = "Statistics.get"
         self.body = json.dumps(body)
 
         try:
-            _, raw = self._get_raw_data_with_headers()
+            raw = self._get_raw_data()
             json_data = json.loads(raw)
 
-        except (ValueError, AttributeError):
-            self.debug("Get Statistics Exception!")
+            if self._check_is_get_error(json_data):
+                self.debug("Get Statistics OK.")
+                return json_data['result']['statistics']
+
+        except Exception as error:
+            self.error('get_statistics() error:', str(error))
             return None
         
         finally:
             self.body = ""
 
-        if 'error' in json_data:
-            self.debug("Get Statistics Error!!!")
-            return None
-        else:
-            self.debug("Get Statistics OK!")
-            return json_data['result']['statistics']
+    def _reset_statistics(self):
+        if not self.isLogin():
+            self.error('reset_statistics() failed, no login in the system.')
+            return False
+        
+        self._header_update()
+        body = dict(self._default_body)
+        body['method'] = "Statistics.reset"
+        self.body = json.dumps(body)
+
+        try:
+            raw = self._get_raw_data()
+            json_data = json.loads(raw)
+
+            if self._check_is_get_error(json_data):
+                self.debug("Reset Statistics OK.")
+                return True
+            
+        except Exception as error:
+            self.error('reset_statistics() error:', str(error))
+            return False
+        
+        finally:
+            self.body = ""
+
+
+
+    def _api_get_data(self, method, params):
+        status = False
+        data = None
+        caller_name = inspect.stack()[1][3]
+
+        self._header_update()
+        body = dict(self._default_body)
+        body['method'] = method
+        body['params'] = params
+        self.body = json.dumps(body)
+
+        try:
+            raw = self._get_raw_data()
+            json_data = json.loads(raw)
+
+            if 'error' in json_data:
+                err_data = json_data['error']
+                self.error('{name}() failed. Error Code: {code}. Error: {error}'.format(name=caller_name, code=err_data['code'], error=err_data['message']))
+            else:
+                data = json_data
+                status = True
+            
+        except Exception as error:
+            self.error('{name}() error:'.format(name=caller_name), str(error))
+        
+        finally:
+            self.body = ""
+
+        return status, data
+
+
 
     def _conversor_units(self, size_in):
         value = int(size_in['value'])
@@ -556,6 +628,7 @@ class Service(UrlService):
             data_return.update(storage_fix)
 
             # print(data_return)
+            self._reset_statistics()
             self._logout()
 
         return data_return
