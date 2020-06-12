@@ -415,16 +415,13 @@ class Service(UrlService):
             return True
         return False
 
-    def _login(self):
+    def api_login(self):
         if self.isLogin():
-            self._logout()
+            self.api_logout()
 
         self._clean()
-        self._header_update()
 
-        body = dict(self._default_body)
-        body['method'] = "Session.login"
-        body['params'] = {
+        params = {
             'userName': self._api_user,
             'password': self._api_pass,
             'application': {
@@ -433,118 +430,76 @@ class Service(UrlService):
                 'version': '1.0',
             }
         }
-        self.body = json.dumps(body)
+        status, data, headers = self._api_get("Session.login", params)
+        if status:
+            cookies = self._headers_get_cookies(headers)
+            self._cookie_session = "" if not 'SESSION_CONNECT_WEBADMIN' in cookies else cookies['SESSION_CONNECT_WEBADMIN']
+            self._api_token = data['result']['token']
+            self.debug("Login OK.")
+            
+        return status
 
-        try:
-            headers, raw = self._get_raw_data_with_headers()
-            json_data = json.loads(raw)
-
-            if self._check_is_get_error(json_data):
-                cookies = self._headers_get_cookies(headers)
-                self._cookie_session = "" if not 'SESSION_CONNECT_WEBADMIN' in cookies else cookies['SESSION_CONNECT_WEBADMIN']
-                self._api_token = json_data['result']['token']
-
-                self.debug("Login OK.")
-                return True
-
-        except Exception as error:
-            self.error('login() error:', str(error))
-            return False
-
-        finally:
-            self.body = ""
-
-    def _logout(self):
-        if not self.isLogin():
-            self._clean()
-            return True
+    def api_logout(self):
+        status = self._api_get_only_status("Session.logout")
+        if status:
+            self.debug("Logout OK.")
         
-        self._header_update()
-        body = dict(self._default_body)
-        body['method'] = "Session.logout"
-        self.body = json.dumps(body)
+        self._clean()
+        return status
 
-        try:
-            raw = self._get_raw_data()
-            json_data = json.loads(raw)
-
-            if self._check_is_get_error(json_data):
-                self.debug("Logout OK.")
-                return True
-
-        except Exception as error:
-            self.error('logout() error:', str(error))
-            return False
-        
-        finally:
-            self.body = ""
-            self._clean()
-
-    def _get_statistics(self):
-        if not self.isLogin():
-            self.error('get_statistics() failed, no login in the system.')
-            return None
-        
-        self._header_update()
-        body = dict(self._default_body)
-        body['method'] = "Statistics.get"
-        self.body = json.dumps(body)
-
-        try:
-            raw = self._get_raw_data()
-            json_data = json.loads(raw)
-
-            if self._check_is_get_error(json_data):
+    def api_get_statistics(self):
+        if self.isLogin():
+            status, data = self._api_get_data("Statistics.get")
+            if status:
                 self.debug("Get Statistics OK.")
-                return json_data['result']['statistics']
-
-        except Exception as error:
-            self.error('get_statistics() error:', str(error))
-            return None
+                return data['result']['statistics']
+            
+        else:
+            self.error('get_statistics() failed, no login in the system.')
         
-        finally:
-            self.body = ""
+        return None
 
-    def _reset_statistics(self):
-        if not self.isLogin():
-            self.error('reset_statistics() failed, no login in the system.')
-            return False
-        
-        self._header_update()
-        body = dict(self._default_body)
-        body['method'] = "Statistics.reset"
-        self.body = json.dumps(body)
-
-        try:
-            raw = self._get_raw_data()
-            json_data = json.loads(raw)
-
-            if self._check_is_get_error(json_data):
+    def api_reset_statistics(self):
+        if self.isLogin():
+            if self._api_get_only_status("Statistics.reset"):
                 self.debug("Reset Statistics OK.")
                 return True
-            
-        except Exception as error:
-            self.error('reset_statistics() error:', str(error))
-            return False
+
+        else:
+            self.error('reset_statistics() failed, no login in the system.')
         
-        finally:
-            self.body = ""
+        return False
 
+    def _api_get_only_status(self, method, params = None):
+        status, _ = self._api_get_data(method=method, params=params)
+        return status
 
+    def _api_get_data(self, method, params = None):
+        status, data, _ = self._api_get(method=method, params=params)
+        return status, data
 
-    def _api_get_data(self, method, params):
+    def _api_get(self, method, params = None):
         status = False
         data = None
-        caller_name = inspect.stack()[1][3]
+        headers = None
+
+        caller_name = "Unkown"
+        for record in inspect.stack():
+            caller = record[3]
+            if caller not in ['_api_get', '_api_get_data', '_api_get_only_status']:
+                caller_name = caller
+                break
+        self.debug("Caller: {caller}, URL: {url}".format(caller=caller_name, url=self.url))
 
         self._header_update()
         body = dict(self._default_body)
         body['method'] = method
-        body['params'] = params
+        if params:
+            body['params'] = params
         self.body = json.dumps(body)
 
         try:
-            raw = self._get_raw_data()
+            headers, raw = self._get_raw_data_with_headers()
             json_data = json.loads(raw)
 
             if 'error' in json_data:
@@ -560,7 +515,7 @@ class Service(UrlService):
         finally:
             self.body = ""
 
-        return status, data
+        return status, data, headers
 
 
 
@@ -591,8 +546,8 @@ class Service(UrlService):
 
     def _get_data(self):
         data_return = dict()
-        if self._login():
-            datos = self._get_statistics()
+        if self.api_login():
+            datos = self.api_get_statistics()
             # print(datos)
 
             data_return = fetch_data(raw_data=datos, metrics=KERIO_CONNECT_STATISTICS)
@@ -628,8 +583,8 @@ class Service(UrlService):
             data_return.update(storage_fix)
 
             # print(data_return)
-            self._reset_statistics()
-            self._logout()
+            self.api_reset_statistics()
+            self.api_logout()
 
         return data_return
 
