@@ -490,27 +490,21 @@ class Service(UrlService):
             return json_data['result']['statistics']
 
     def _conversor_units(self, size_in):
-        data_return = int(size_in['value'])
-        t_unit = str(size_in['units'])
+        value = int(size_in['value'])
+        unit = str(size_in['units'])
 
-        while t_unit:
-            t_unit = t_unit.replace("Bytes", "")
-
-            if t_unit == "Kilo":
-                t_unit = "Bytes"
-
-            if t_unit == "Mega":
-                t_unit = "Kilo"
+        ls_units = {
+            'Bytes'     : 0,
+            'KiloBytes' : 1,
+            'MegaBytes' : 2,
+            'GigaBytes' : 3,
+            'TeraBytes' : 4,
+        }
+        if unit and unit in ls_units:
+            data_return = int(value) * (1024 ** ls_units[unit])
+        else:
+            data_return = -1
             
-            if t_unit == "Giga":
-                t_unit = "Mega"
-            
-            if t_unit == "Tera":
-                t_unit = "Giga"
-
-            if t_unit:
-                data_return = data_return * 1024
-
         return data_return
 
     def check(self):
@@ -584,12 +578,9 @@ def fetch_data(raw_data, metrics, fun_process = None):
 
 
 
-
-
 # # "start": 1555847378,
 # #       INFO: Fecha y hora en formato UNIX del inicio de las estadisticas.
 # 'start': int( datos['start'] ),
-
 
 # # "other": {
 # #     "largest": {
@@ -615,7 +606,6 @@ def fetch_data(raw_data, metrics, fun_process = None):
 # #     "hours": 4,
 # #     "minutes": 41
 # # }
-# 'uptime': int( datos['uptime']['minutes'] + (datos['uptime']['hours'] * 60) + ( (datos['uptime']['days'] * 60) * 24 ) ),
 
 # # "storage": {
 # #     "total": {
@@ -629,9 +619,6 @@ def fetch_data(raw_data, metrics, fun_process = None):
 # #     "percentage": "91"
 # # }
 
-
-
-
 # # "received": {
 # #     "count": "47350",
 # #     "volume": {
@@ -639,11 +626,7 @@ def fetch_data(raw_data, metrics, fun_process = None):
 # #         "units": "MegaBytes"
 # #     },
 # #     "recipients": "49460"
-# # },
-# #TODO: Controlar las unidades
-# 'received_count'      : int(datos['received']['count']),
-# 'received_recipients' : int(datos['received']['recipients']),
-# 'received_volume'     : int(datos['received']['volume']['value']),
+# # }
                 
 # # "storedInQueue": {
 # #     "count": "0",
@@ -652,11 +635,7 @@ def fetch_data(raw_data, metrics, fun_process = None):
 # #         "units": "Bytes"
 # #     },
 # #     "recipients": "0"
-# # },
-# #TODO: Controlar las unidades
-# 'storedInQueue_count'      : int(datos['storedInQueue']['count']),
-# 'storedInQueue_recipients' : int(datos['storedInQueue']['recipients']),
-# 'storedInQueue_volume'     : int(datos['storedInQueue']['volume']['value']),
+# # }
 
 # # "transmitted": {
 # #     "count": "48941",
@@ -665,11 +644,7 @@ def fetch_data(raw_data, metrics, fun_process = None):
 # #         "units": "MegaBytes"
 # #     },
 # #     "recipients": "48941"
-# # },
-# #TODO: Controlar las unidades
-# 'transmitted_count'      : int(datos['transmitted']['count']),
-# 'transmitted_recipients' : int(datos['transmitted']['recipients']),
-# 'transmitted_volume'     : int(datos['transmitted']['volume']['value']),
+# # }
 
 # # "deliveredToLocals": {
 # #     "count": "47967",
@@ -678,11 +653,7 @@ def fetch_data(raw_data, metrics, fun_process = None):
 # #         "units": "MegaBytes"
 # #     },
 # #     "recipients": "47967"
-# # },
-# #TODO: Controlar las unidades
-# 'deliveredToLocals_count'      : int(datos['deliveredToLocals']['count']),
-# 'deliveredToLocals_recipients' : int(datos['deliveredToLocals']['recipients']),
-# 'deliveredToLocals_volume'     : int(datos['deliveredToLocals']['volume']['value']),
+# # }
 
 # # "mx": {
 # #     "count": "0",
@@ -691,12 +662,7 @@ def fetch_data(raw_data, metrics, fun_process = None):
 # #         "units": "Bytes"
 # #     },
 # #     "recipients": "0"
-# # },
-# #TODO: Controlar las unidades
-# 'mx_count'      : int(datos['mx']['count']),
-# 'mx_recipients' : int(datos['mx']['recipients']),
-# 'mx_volume'     : int(datos['mx']['volume']['value']),
-
+# # }
 
 # # "relay": {
 # #     "count": "974",
@@ -705,29 +671,13 @@ def fetch_data(raw_data, metrics, fun_process = None):
 # #         "units": "KiloBytes"
 # #     },
 # #     "recipients": "974"
-# # },
-# #TODO: Controlar las unidades
-# 'relay_count'      : int(datos['relay']['count']),
-# 'relay_recipients' : int(datos['relay']['recipients']),
-# 'relay_volume'     : int(datos['relay']['volume']['value']),
-
-# # "other": {
-# #     "largest": {
-# #         "value": 34994,
-# #         "units": "KiloBytes"
-# #     },
-# # },
-# 'other_largest_value'      : int(datos['other']['largest']['value']),
-# 'other_largest_units'      : int(datos['other']['largest']['units']),
+# # }
 
 # # "antivirus": {
 # #     "checkedAttachments": "0",
 # #     "foundViruses": "0",
 # #     "prohibitedTypes": "0"
 # # }
-# 'antivirus_checkedAttachments'  : int(datos['antivirus']['checkedAttachments']),
-# 'antivirus_foundViruses'        : int(datos['antivirus']['foundViruses']),
-# 'antivirus_prohibitedTypes'     : int(datos['antivirus']['prohibitedTypes']),
 
 # # "spam": {
 # #     "checked": "46942",
@@ -736,29 +686,18 @@ def fetch_data(raw_data, metrics, fun_process = None):
 # #     "markedAsSpam": "1",
 # #     "markedAsNotSpam": "2"
 # # }
-# 'spam_checked'          : int(datos['spam']['checked']),
-# 'spam_tagged'           : int(datos['spam']['tagged']),
-# 'spam_rejected'         : int(datos['spam']['rejected']),
-# 'spam_markedAsSpam'     : int(datos['spam']['markedAsSpam']),
-# 'spam_markedAsNotSpam'  : int(datos['spam']['markedAsNotSpam']),
 
 # # "deliveryStatus": {
 # #     "success": "1",
 # #     "delay": "2",
 # #     "failure": "4"
 # # }
-# 'deliveryStatus_success'  : int(datos['deliveryStatus']['success']),
-# 'deliveryStatus_delay'    : int(datos['deliveryStatus']['delay']),
-# 'deliveryStatus_failure'  : int(datos['deliveryStatus']['failure']),
 
 # # "antibombing": {
 # #     "rejectedConnections": "0",
 # #     "rejectedMessages": "0",
 # #     "rejectedHarvestAttacks": "0"
 # # }
-# 'antibombing_rejectedConnections'    : int(datos['antibombing']['rejectedConnections']),
-# 'antibombing_rejectedMessages'       : int(datos['antibombing']['rejectedMessages']),
-# 'antibombing_rejectedHarvestAttacks' : int(datos['antibombing']['rejectedHarvestAttacks']),
 
 # # "dnsResolver": {
 # #     "hostnameQueries": "5753836",
@@ -766,10 +705,6 @@ def fetch_data(raw_data, metrics, fun_process = None):
 # #     "mxQueries": "0",
 # #     "cachedMxQueries": "0"
 # # }
-# 'dnsResolver_hostnameQueries'       : int(datos['dnsResolver']['hostnameQueries']),
-# 'dnsResolver_cachedHostnameQueries' : int(datos['dnsResolver']['cachedHostnameQueries']),
-# 'dnsResolver_mxQueries'             : int(datos['dnsResolver']['mxQueries']),
-# 'dnsResolver_cachedMxQueries'       : int(datos['dnsResolver']['cachedMxQueries']),
 
 # # "smtpClient": {
 # #     "connectionAttempts": "1048",
@@ -777,10 +712,6 @@ def fetch_data(raw_data, metrics, fun_process = None):
 # #     "connectionFailures": "56",
 # #     "connectionLosses": "10"
 # # }
-# 'smtpClient_connectionAttempts' : int(datos['smtpClient']['connectionAttempts']),
-# 'smtpClient_dnsFailures'        : int(datos['smtpClient']['dnsFailures']),
-# 'smtpClient_connectionFailures' : int(datos['smtpClient']['connectionFailures']),
-# 'smtpClient_connectionLosses'   : int(datos['smtpClient']['connectionLosses']),
 
 # #  "pop3Client": {
 # #     "connectionAttempts": "5752784",
@@ -788,10 +719,6 @@ def fetch_data(raw_data, metrics, fun_process = None):
 # #     "authenticationFailures": "1383",
 # #     "totalDownloads": "19707"
 # # }
-# 'pop3Client_connectionAttempts'     : int(datos['pop3Client']['connectionAttempts']),
-# 'pop3Client_connectionFailures'     : int(datos['pop3Client']['connectionFailures']),
-# 'pop3Client_authenticationFailures' : int(datos['pop3Client']['authenticationFailures']),
-# 'pop3Client_totalDownloads'         : int(datos['pop3Client']['totalDownloads']),
 
 # # "smtpServer": {
 # #     "totalIncomingConnections": "28083",
@@ -802,47 +729,29 @@ def fetch_data(raw_data, metrics, fun_process = None):
 # #     "rejectedRelays": "0",
 # #     "acceptedMessages": "26789"
 # # }
-# 'smtpServer_totalIncomingConnections' : int(datos['smtpServer']['totalIncomingConnections']),
-# 'smtpServer_lostConnections'          : int(datos['smtpServer']['lostConnections']),
-# 'smtpServer_rejectedByBlacklist'      : int(datos['smtpServer']['rejectedByBlacklist']),
-# 'smtpServer_authenticationAttempts'   : int(datos['smtpServer']['authenticationAttempts']),
-# 'smtpServer_authenticationFailures'   : int(datos['smtpServer']['authenticationFailures']),
-# 'smtpServer_rejectedRelays'           : int(datos['smtpServer']['rejectedRelays']),
-# 'smtpServer_acceptedMessages'         : int(datos['smtpServer']['acceptedMessages']),
 
 # # "pop3Server": {
 # #     "totalIncomingConnections": "0",
 # #     "authenticationFailures": "0",
 # #     "sentMessages": "0"
 # # }
-# 'pop3Server_totalIncomingConnections' : int(datos['pop3Server']['totalIncomingConnections']),
-# 'pop3Server_authenticationFailures'   : int(datos['pop3Server']['authenticationFailures']),
-# 'pop3Server_sentMessages'             : int(datos['pop3Server']['sentMessages']),
 
 # # "imapServer": {
 # #     "totalIncomingConnections": "3",
 # #     "authenticationFailures": "1"
 # # }
-# 'imapServer_totalIncomingConnections' : int(datos['imapServer']['totalIncomingConnections']),
-# 'imapServer_authenticationFailures'   : int(datos['imapServer']['authenticationFailures']),
 
 # # "ldapServer": {
 # #     "totalIncomingConnections": "6",
 # #     "authenticationFailures": "0",
 # #     "totalSearchRequests": "96"
 # # }
-# 'ldapServer_totalIncomingConnections' : int(datos['ldapServer']['totalIncomingConnections']),
-# 'ldapServer_authenticationFailures'   : int(datos['ldapServer']['authenticationFailures']),
-# 'ldapServer_totalSearchRequests'      : int(datos['ldapServer']['totalSearchRequests']),
 
 # # "webServer": {
 # #     "totalIncomingConnections": "2440141"
 # # }
-# 'webServer_totalIncomingConnections' : int(datos['webServer']['totalIncomingConnections']),
 
 # # "xmppServer": {
 # #     "totalIncomingConnections": "0",
 # #     "authenticationFailures": "0"
 # # }
-# 'xmppServer_totalIncomingConnections' : int(datos['xmppServer']['totalIncomingConnections']),
-# 'xmppServer_authenticationFailures'   : int(datos['xmppServer']['authenticationFailures']),
