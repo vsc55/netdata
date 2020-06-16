@@ -368,7 +368,43 @@ class Service(UrlService):
         self._api_token = ""
         self._cookie_session = ""
         
+        self.cookie = dict()
+        self.cookie_active = True
+
         #self.header = {'content-type': 'application/json'}
+
+
+    def __make_headers(self, **header_kw):
+        header, proxy_header = super(Service, self).__make_headers(**header_kw)
+
+        if header:
+            custom_cookie = header_kw.get('cookie') or self.cookie
+            if self.cookie_active:
+                if custom_cookie:
+                    header.update( { 'Cookie': ';'.join("{key}={value}".format(key=str(key), value=str(value)) for key, value in custom_cookie.items()) } )
+        
+        return header, proxy_header
+
+    def _do_request(self, url=None, manager=None, retries=1, redirect=True, **kwargs):
+        if not manager:
+            self._manager = self._build_manager()
+            if not manager:
+                return None
+
+        response = super(Service, self)._do_request(url, manager, retries, redirect, **kwargs)
+
+        self.cookie = dict()
+        if self.cookie_active:
+            if 'Set-Cookie' in response.headers:
+                for item in response.headers['Set-Cookie'].split(";"):
+                    cookie = item.split("=", 1)
+                    self.cookie.update( {
+                        cookie[0] : "" if len(cookie) == 1 else cookie[1]
+                    } )
+
+        return response
+
+
 
     def _headers_get_cookies(self, headers):
         data_return = dict()
