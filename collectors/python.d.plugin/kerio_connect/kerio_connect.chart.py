@@ -8,6 +8,7 @@ import json
 
 from requests import session
 from bases.FrameworkServices.UrlService import UrlService
+import pprint
 
 KERIO_CONNECT_STATISTICS = [
     'start',
@@ -283,64 +284,64 @@ CHARTS = {
     },
 
 
-# 'storedInQueue.volume',
-# 'transmitted.volume',
-# 'deliveredToLocals.volume',
-# 'mx.volume',
-# 'relay.volume',
+    # 'storedInQueue.volume',
+    # 'transmitted.volume',
+    # 'deliveredToLocals.volume',
+    # 'mx.volume',
+    # 'relay.volume',
 
-# # "received": {
-# #     "count": "47350",
-# #     "volume": {
-# #         "value": 2986,
-# #         "units": "MegaBytes"
-# #     },
-# #     "recipients": "49460"
-# # },
-# # "storedInQueue": {
-# #     "count": "0",
-# #     "volume": {
-# #         "value": 0,
-# #         "units": "Bytes"
-# #     },
-# #     "recipients": "0"
-# # },
+    # # "received": {
+    # #     "count": "47350",
+    # #     "volume": {
+    # #         "value": 2986,
+    # #         "units": "MegaBytes"
+    # #     },
+    # #     "recipients": "49460"
+    # # },
+    # # "storedInQueue": {
+    # #     "count": "0",
+    # #     "volume": {
+    # #         "value": 0,
+    # #         "units": "Bytes"
+    # #     },
+    # #     "recipients": "0"
+    # # },
 
-# # "transmitted": {
-# #     "count": "48941",
-# #     "volume": {
-# #         "value": 3087,
-# #         "units": "MegaBytes"
-# #     },
-# #     "recipients": "48941"
-# # },
+    # # "transmitted": {
+    # #     "count": "48941",
+    # #     "volume": {
+    # #         "value": 3087,
+    # #         "units": "MegaBytes"
+    # #     },
+    # #     "recipients": "48941"
+    # # },
 
-# # "deliveredToLocals": {
-# #     "count": "47967",
-# #     "volume": {
-# #         "value": 2632,
-# #         "units": "MegaBytes"
-# #     },
-# #     "recipients": "47967"
-# # },
+    # # "deliveredToLocals": {
+    # #     "count": "47967",
+    # #     "volume": {
+    # #         "value": 2632,
+    # #         "units": "MegaBytes"
+    # #     },
+    # #     "recipients": "47967"
+    # # },
 
-# # "mx": {
-# #     "count": "0",
-# #     "volume": {
-# #         "value": 0,
-# #         "units": "Bytes"
-# #     },
-# #     "recipients": "0"
-# # },
+    # # "mx": {
+    # #     "count": "0",
+    # #     "volume": {
+    # #         "value": 0,
+    # #         "units": "Bytes"
+    # #     },
+    # #     "recipients": "0"
+    # # },
 
-# # "relay": {
-# #     "count": "974",
-# #     "volume": {
-# #         "value": 465322,
-# #         "units": "KiloBytes"
-# #     },
-# #     "recipients": "974"
-# # },
+    # # "relay": {
+    # #     "count": "974",
+    # #     "volume": {
+    # #         "value": 465322,
+    # #         "units": "KiloBytes"
+    # #     },
+    # #     "recipients": "974"
+    # # },
 
 }
 
@@ -361,81 +362,43 @@ class Service(UrlService):
         self.url = self.configuration.get('url', 'http://localhost/admin/api/jsonrpc/')
         self.method = "POST"
         self.request_timeout = 5
+        self.header = dict()
         self.update_every = self.configuration.get('update_every', 15)
         self._enabled = self.configuration.get('enabled', True)
         self._api_user = self.configuration.get('user', '')
         self._api_pass = self.configuration.get('pass', '')
         self._api_token = ""
-        self._cookie_session = ""
-        
-        self.cookie = dict()
+        self._cookie = dict()
         self.cookie_active = True
 
-        #self.header = {'content-type': 'application/json'}
-
-
-    def __make_headers(self, **header_kw):
-        header, proxy_header = super(Service, self).__make_headers(**header_kw)
-
-        if header:
-            custom_cookie = header_kw.get('cookie') or self.cookie
-            if self.cookie_active:
-                if custom_cookie:
-                    header.update( { 'Cookie': ';'.join("{key}={value}".format(key=str(key), value=str(value)) for key, value in custom_cookie.items()) } )
-        
-        return header, proxy_header
-
     def _do_request(self, url=None, manager=None, retries=1, redirect=True, **kwargs):
-        if not manager:
-            self._manager = self._build_manager()
-            if not manager:
-                return None
+        self.header = { 'content-type': 'application/json' }
+        
+        if self._api_token:
+            #Token Api Kerio
+            self.header.update( { 'X-Token' : self._api_token } )
 
-        response = super(Service, self)._do_request(url, manager, retries, redirect, **kwargs)
+        if self.cookie_active:
+            if self._cookie:
+                self.header.update( { 'Cookie': ';'.join("{key}={value}".format(key=str(key), value=str(value)) for key, value in self._cookie.items()) } )
 
-        self.cookie = dict()
+        self._manager = self._build_manager()
+        response = super(Service, self)._do_request()
+        
         if self.cookie_active:
             if 'Set-Cookie' in response.headers:
+                self._cookie = dict()
                 for item in response.headers['Set-Cookie'].split(";"):
                     cookie = item.split("=", 1)
-                    self.cookie.update( {
-                        cookie[0] : "" if len(cookie) == 1 else cookie[1]
-                    } )
+                    if cookie[0].strip().lower() in ['expires', 'max-age', 'domain', 'path', 'secure', 'httponly', 'samesite']:
+                        continue
+                    self._cookie.update( { cookie[0].strip() : "" if len(cookie) == 1 else cookie[1] } )
 
         return response
 
-
-
-    def _headers_get_cookies(self, headers):
-        data_return = dict()
-        if 'Set-Cookie' in headers:
-            for item in headers['Set-Cookie'].split(";"):
-                cookie = item.split("=", 1)
-                data_return.update( {
-                    cookie[0] : "" if len(cookie) == 1 else cookie[1]
-                } )
-        return data_return
-
-    def _header_update(self):
-        self.header = { 
-            'content-type': 'application/json' 
-        }
-
-        if self._api_token:
-            self.header.update( {
-                'X-Token' : self._api_token
-            } )
-
-        if self._cookie_session:
-            self.header.update( {
-                "Cookie": "SESSION_CONNECT_WEBADMIN={0}".format(self._cookie_session)
-            } )
-
-        self._manager = self._build_manager()
-
     def _clean(self):
+        self._cookie = dict()
         self._api_token = ""
-        self._cookie_session = ""
 
     def _check_is_get_error(self, json_data):
         if 'error' in json_data:
@@ -466,26 +429,23 @@ class Service(UrlService):
                 'version': '1.0',
             }
         }
-        status, data, headers = self._api_get("Session.login", params)
+        status, data = self._api_get("Session.login", params)
         if status:
-            cookies = self._headers_get_cookies(headers)
-            self._cookie_session = "" if not 'SESSION_CONNECT_WEBADMIN' in cookies else cookies['SESSION_CONNECT_WEBADMIN']
             self._api_token = data['result']['token']
             self.debug("Login OK.")
             
         return status
 
     def api_logout(self):
-        status = self._api_get_only_status("Session.logout")
+        status = self._api_get_status("Session.logout")
         if status:
             self.debug("Logout OK.")
-        
         self._clean()
         return status
 
     def api_get_statistics(self):
         if self.isLogin():
-            status, data = self._api_get_data("Statistics.get")
+            status, data = self._api_get("Statistics.get")
             if status:
                 self.debug("Get Statistics OK.")
                 return data['result']['statistics']
@@ -497,7 +457,7 @@ class Service(UrlService):
 
     def api_reset_statistics(self):
         if self.isLogin():
-            if self._api_get_only_status("Statistics.reset"):
+            if self._api_get_status("Statistics.reset"):
                 self.debug("Reset Statistics OK.")
                 return True
 
@@ -506,28 +466,23 @@ class Service(UrlService):
         
         return False
 
-    def _api_get_only_status(self, method, params = None):
-        status, _ = self._api_get_data(method=method, params=params)
+    def _api_get_status(self, method, params = None):
+        status, _ = self._api_get(method=method, params=params)
         return status
-
-    def _api_get_data(self, method, params = None):
-        status, data, _ = self._api_get(method=method, params=params)
-        return status, data
 
     def _api_get(self, method, params = None):
         status = False
         data = None
-        headers = None
 
+        # Find name Caller
         caller_name = "Unkown"
         for record in inspect.stack():
             caller = record[3]
-            if caller not in ['_api_get', '_api_get_data', '_api_get_only_status']:
+            if caller not in ['_api_get', '_api_get_status']:
                 caller_name = caller
                 break
-        self.debug("Caller: {caller}, URL: {url}".format(caller=caller_name, url=self.url))
+        self.debug("Caller: {caller}, METHOD: {method}, URL: {url}".format(caller=caller_name, method=method, url=self.url))
 
-        self._header_update()
         body = dict(self._default_body)
         body['method'] = method
         if params:
@@ -535,7 +490,7 @@ class Service(UrlService):
         self.body = json.dumps(body)
 
         try:
-            headers, raw = self._get_raw_data_with_headers()
+            raw = self._get_raw_data()
             json_data = json.loads(raw)
 
             if 'error' in json_data:
@@ -544,14 +499,14 @@ class Service(UrlService):
             else:
                 data = json_data
                 status = True
-            
+
         except Exception as error:
             self.error('{name}() error:'.format(name=caller_name), str(error))
         
         finally:
             self.body = ""
 
-        return status, data, headers
+        return status, data
 
 
 
