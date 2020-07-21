@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# shellcheck source=packaging/makeself/functions.sh
-. "$(dirname "${0}")/../functions.sh" "${@}" || exit 1
+. $(dirname "${0}")/../functions.sh "${@}" || exit 1
 
 [ -d "${NETDATA_INSTALL_PATH}.old" ] && run rm -rf "${NETDATA_INSTALL_PATH}.old"
 [ -d "${NETDATA_INSTALL_PATH}" ] && run mv -f "${NETDATA_INSTALL_PATH}" "${NETDATA_INSTALL_PATH}.old"
