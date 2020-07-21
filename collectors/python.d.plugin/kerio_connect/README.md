@@ -41,7 +41,7 @@ update_every : 10
 priority     : 90100
 
 local:
-  url     : 'http://localhost/'
+  url     : 'http://localhost:4040/'
   user    : 'admin'
   pass    : 'secret'
   enabled : True
