@@ -31,6 +31,12 @@ typedef struct pluginsd_action {
     PARSER_RC (*variable_action)(void *user, RRDHOST *host, RRDSET *st, char *name, int global, calculated_number value);
     PARSER_RC (*label_action)(void *user, char *key, char *value, LABEL_SOURCE source);
     PARSER_RC (*overwrite_action)(void *user, RRDHOST *host, struct label *new_labels);
+
+    PARSER_RC (*guid_action)(void *user, uuid_t *uuid);
+    PARSER_RC (*context_action)(void *user, uuid_t *uuid);
+    PARSER_RC (*tombstone_action)(void *user, uuid_t *uuid);
+    PARSER_RC (*host_action)(void *user, char *machine_guid, char *hostname, char *registry_hostname, int update_every, char *os,
+        char *timezone, char *tags);
 } PLUGINSD_ACTION;
 
 typedef enum parser_input_type {
@@ -101,5 +107,8 @@ extern PARSER_RC pluginsd_flush(char **words, void *user, PLUGINSD_ACTION  *plug
 extern PARSER_RC pluginsd_disable(char **words, void *user, PLUGINSD_ACTION  *plugins_action);
 extern PARSER_RC pluginsd_label(char **words, void *user, PLUGINSD_ACTION  *plugins_action);
 extern PARSER_RC pluginsd_overwrite(char **words, void *user, PLUGINSD_ACTION  *plugins_action);
+extern PARSER_RC pluginsd_guid(char **words, void *user, PLUGINSD_ACTION  *plugins_action);
+extern PARSER_RC pluginsd_context(char **words, void *user, PLUGINSD_ACTION  *plugins_action);
+extern PARSER_RC pluginsd_tombstone(char **words, void *user, PLUGINSD_ACTION  *plugins_action);
 
 #endif

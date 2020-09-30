@@ -35,10 +35,11 @@ int prometheus_remote_write_send_header(int *sock, struct instance *instance)
         "POST %s HTTP/1.1\r\n"
         "Host: %s\r\n"
         "Accept: */*\r\n"
+        "X-Prometheus-Remote-Write-Version: 0.1.0\r\n"
         "Content-Length: %zu\r\n"
         "Content-Type: application/x-www-form-urlencoded\r\n\r\n",
         connector_specific_config->remote_write_path,
-        instance->engine->config.hostname,
+        instance->config.destination,
         buffer_strlen((BUFFER *)instance->buffer));
 
     size_t header_len = buffer_strlen(header);
@@ -257,7 +258,7 @@ int format_dimension_prometheus_remote_write(struct instance *instance, RRDDIM *
                     dimension,
                     (instance->config.options & EXPORTING_OPTION_SEND_NAMES && rd->name) ? rd->name : rd->id,
                     PROMETHEUS_ELEMENT_MAX);
-                snprintf(name, PROMETHEUS_LABELS_MAX, "%s_%s%s", instance->engine->config.prefix, context, suffix);
+                snprintf(name, PROMETHEUS_LABELS_MAX, "%s_%s%s", instance->config.prefix, context, suffix);
 
                 add_metric(
                     connector_specific_data->write_request,
@@ -273,7 +274,7 @@ int format_dimension_prometheus_remote_write(struct instance *instance, RRDDIM *
                     (instance->config.options & EXPORTING_OPTION_SEND_NAMES && rd->name) ? rd->name : rd->id,
                     PROMETHEUS_ELEMENT_MAX);
                 snprintf(
-                    name, PROMETHEUS_LABELS_MAX, "%s_%s_%s%s", instance->engine->config.prefix, context, dimension,
+                    name, PROMETHEUS_LABELS_MAX, "%s_%s_%s%s", instance->config.prefix, context, dimension,
                     suffix);
 
                 add_metric(
@@ -299,7 +300,7 @@ int format_dimension_prometheus_remote_write(struct instance *instance, RRDDIM *
                     (instance->config.options & EXPORTING_OPTION_SEND_NAMES && rd->name) ? rd->name : rd->id,
                     PROMETHEUS_ELEMENT_MAX);
                 snprintf(
-                    name, PROMETHEUS_LABELS_MAX, "%s_%s%s%s", instance->engine->config.prefix, context, units, suffix);
+                    name, PROMETHEUS_LABELS_MAX, "%s_%s%s%s", instance->config.prefix, context, units, suffix);
 
                 add_metric(
                     connector_specific_data->write_request,

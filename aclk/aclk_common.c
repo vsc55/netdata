@@ -2,6 +2,23 @@
 
 #include "../daemon/common.h"
 
+#ifdef ENABLE_ACLK
+#include <libwebsockets.h>
+#endif
+
+netdata_mutex_t aclk_shared_state_mutex = NETDATA_MUTEX_INITIALIZER;
+
+int aclk_disable_runtime = 0;
+int aclk_kill_link = 0;
+
+struct aclk_shared_state aclk_shared_state = {
+    .metadata_submitted = ACLK_METADATA_REQUIRED,
+    .agent_state = AGENT_INITIALIZING,
+    .last_popcorn_interrupt = 0,
+    .version_neg = 0,
+    .version_neg_wait_till = 0
+};
+
 struct {
     ACLK_PROXY_TYPE type;
     const char *url_str;
@@ -131,14 +148,31 @@ const char *aclk_lws_wss_get_proxy_setting(ACLK_PROXY_TYPE *type)
         return proxy;
 
     if (strcmp(proxy, ACLK_PROXY_ENV) == 0) {
-        if (check_socks_enviroment(&proxy) == 0)
+        if (check_socks_enviroment(&proxy) == 0) {
+#ifdef LWS_WITH_SOCKS5
             *type = PROXY_TYPE_SOCKS5;
-        else if (check_http_enviroment(&proxy) == 0)
+            return proxy;
+#else
+            safe_log_proxy_error("socks_proxy environment variable set to use SOCKS5 proxy "
+                "but Libwebsockets used doesn't have SOCKS5 support built in. "
+                "Ignoring and checking for other options.",
+                proxy);
+#endif
+        }
+        if (check_http_enviroment(&proxy) == 0)
             *type = PROXY_TYPE_HTTP;
         return proxy;
     }
 
     *type = aclk_verify_proxy(proxy);
+#ifndef LWS_WITH_SOCKS5
+    if (*type == PROXY_TYPE_SOCKS5) {
+        safe_log_proxy_error(
+            "Config var \"" ACLK_PROXY_CONFIG_VAR
+            "\" set to use SOCKS5 proxy but Libwebsockets used is built without support for SOCKS proxy. ACLK will be disabled.",
+            proxy);
+    }
+#endif
     if (*type == PROXY_TYPE_UNKNOWN) {
         *type = PROXY_DISABLED;
         safe_log_proxy_error(

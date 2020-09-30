@@ -77,7 +77,6 @@ static void test_read_exporting_config(void **state)
     *state = engine;
 
     assert_ptr_not_equal(engine, NULL);
-    assert_string_equal(engine->config.prefix, "netdata");
     assert_string_equal(engine->config.hostname, "test-host");
     assert_int_equal(engine->config.update_every, 3);
     assert_int_equal(engine->instance_num, 0);
@@ -89,6 +88,7 @@ static void test_read_exporting_config(void **state)
     assert_ptr_equal(instance->engine, engine);
     assert_int_equal(instance->config.type, EXPORTING_CONNECTOR_TYPE_GRAPHITE);
     assert_string_equal(instance->config.destination, "localhost");
+    assert_string_equal(instance->config.prefix, "netdata");
     assert_int_equal(instance->config.update_every, 1);
     assert_int_equal(instance->config.buffer_on_failures, 10);
     assert_int_equal(instance->config.timeoutms, 10000);
@@ -1192,11 +1192,12 @@ static void test_prometheus_remote_write_send_header(void **state)
     expect_string(
         __wrap_send, buf,
         "POST /receive HTTP/1.1\r\n"
-        "Host: test-host\r\n"
+        "Host: localhost\r\n"
         "Accept: */*\r\n"
+        "X-Prometheus-Remote-Write-Version: 0.1.0\r\n"
         "Content-Length: 11\r\n"
         "Content-Type: application/x-www-form-urlencoded\r\n\r\n");
-    expect_value(__wrap_send, len, 125);
+    expect_value(__wrap_send, len, 167);
     expect_value(__wrap_send, flags, MSG_NOSIGNAL);
 
     assert_int_equal(prometheus_remote_write_send_header(&sock, instance),0);
@@ -1858,7 +1859,7 @@ int main(void)
                    cmocka_run_group_tests_name("labels_in_exporting_engine", label_tests, NULL, NULL);
 
     const struct CMUnitTest internal_metrics_tests[] = {
-        cmocka_unit_test(test_create_main_rusage_chart),
+        cmocka_unit_test_setup_teardown(test_create_main_rusage_chart, setup_rrdhost, teardown_rrdhost),
         cmocka_unit_test(test_send_main_rusage),
         cmocka_unit_test(test_send_internal_metrics),
     };

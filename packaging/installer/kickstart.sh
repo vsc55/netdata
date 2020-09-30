@@ -13,7 +13,14 @@
 #  --dont-wait                do not prompt for user input
 #  --non-interactive          do not prompt for user input
 #  --no-updates               do not install script for daily updates
-#  --local-files   set the full path of the desired tarball to run install with
+#  --local-files              set the full path of the desired tarball to run install with
+#  --allow-duplicate-install  do not bail if we detect a duplicate install
+#  --reinstall                if an existing install would be updated, reinstall instead
+#
+# Environment options:
+#
+#  TMPDIR                     specify where to save temporary files
+#  NETDATA_TARBALL_BASEURL    set the base url for downloading the dist tarball
 #
 # This script will:
 #
@@ -28,6 +35,9 @@
 
 # External files
 PACKAGES_SCRIPT="https://raw.githubusercontent.com/netdata/netdata/master/packaging/installer/install-required-packages.sh"
+
+# Netdata Tarball Base URL (defaults to our Google Storage Bucket)
+[ -z "$NETDATA_TARBALL_BASEURL" ] && NETDATA_TARBALL_BASEURL=https://storage.googleapis.com/netdata-nightlies
 
 # ---------------------------------------------------------------------------------------------------------------------
 # library functions copied from packaging/installer/functions.sh
@@ -143,24 +153,52 @@ warning() {
   fi
 }
 
-create_tmp_directory() {
-  # Check if tmp is mounted as noexec
-  if grep -Eq '^[^ ]+ /tmp [^ ]+ ([^ ]*,)?noexec[, ]' /proc/mounts > /dev/null 2>&1; then
-    pattern="$(pwd)/netdata-kickstart-XXXXXX"
-  else
-    pattern="/tmp/netdata-kickstart-XXXXXX"
+_cannot_use_tmpdir() {
+  local testfile ret
+  testfile="$(TMPDIR="${1}" mktemp -q -t netdata-test.XXXXXXXXXX)"
+  ret=0
+
+  if [ -z "${testfile}" ] ; then
+    return "${ret}"
   fi
 
-  mktemp -d $pattern
+  if printf '#!/bin/sh\necho SUCCESS\n' > "${testfile}" ; then
+    if chmod +x "${testfile}" ; then
+      if [ "$("${testfile}")" = "SUCCESS" ] ; then
+        ret=1
+      fi
+    fi
+  fi
+
+  rm -f "${testfile}"
+  return "${ret}"
+}
+
+create_tmp_directory() {
+  if [ -z "${TMPDIR}" ] || _cannot_use_tmpdir "${TMPDIR}" ; then
+    if _cannot_use_tmpdir /tmp ; then
+      if _cannot_use_tmpdir "${PWD}" ; then
+        echo >&2
+        echo >&2 "Unable to find a usable temprorary directory. Please set \$TMPDIR to a path that is both writable and allows execution of files and try again."
+        exit 1
+      else
+        TMPDIR="${PWD}"
+      fi
+    else
+      TMPDIR="/tmp"
+    fi
+  fi
+
+  mktemp -d -t netdata-kickstart-XXXXXXXXXX
 }
 
 download() {
   url="${1}"
   dest="${2}"
   if command -v curl > /dev/null 2>&1; then
-    run curl -sSL --connect-timeout 10 --retry 3 "${url}" > "${dest}" || fatal "Cannot download ${url}"
+    run curl -q -sSL --connect-timeout 10 --retry 3 --output "${dest}" "${url}"
   elif command -v wget > /dev/null 2>&1; then
-    run wget -T 15 -O - "${url}" > "${dest}" || fatal "Cannot download ${url}"
+    run wget -T 15 -O "${dest}" "${url}" || fatal "Cannot download ${url}"
   else
     fatal "I need curl or wget to proceed, but neither is available on this system."
   fi
@@ -175,13 +213,12 @@ set_tarball_urls() {
   if [ "$1" = "stable" ]; then
     local latest
     # Simple version
-    # latest="$(curl -sSL https://api.github.com/repos/netdata/netdata/releases/latest | grep tag_name | cut -d'"' -f4)"
     latest="$(download "https://api.github.com/repos/netdata/netdata/releases/latest" /dev/stdout | grep tag_name | cut -d'"' -f4)"
     export NETDATA_TARBALL_URL="https://github.com/netdata/netdata/releases/download/$latest/netdata-$latest.tar.gz"
     export NETDATA_TARBALL_CHECKSUM_URL="https://github.com/netdata/netdata/releases/download/$latest/sha256sums.txt"
   else
-    export NETDATA_TARBALL_URL="https://storage.googleapis.com/netdata-nightlies/netdata-latest.tar.gz"
-    export NETDATA_TARBALL_CHECKSUM_URL="https://storage.googleapis.com/netdata-nightlies/sha256sums.txt"
+    export NETDATA_TARBALL_URL="$NETDATA_TARBALL_BASEURL/netdata-latest.tar.gz"
+    export NETDATA_TARBALL_CHECKSUM_URL="$NETDATA_TARBALL_BASEURL/sha256sums.txt"
   fi
 }
 
@@ -228,19 +265,19 @@ dependencies() {
       progress "Fetching script to detect required packages..."
       if [ -n "${NETDATA_LOCAL_TARBALL_OVERRIDE_DEPS_SCRIPT}" ]; then
         if [ -f "${NETDATA_LOCAL_TARBALL_OVERRIDE_DEPS_SCRIPT}" ]; then
-          run cp "${NETDATA_LOCAL_TARBALL_OVERRIDE_DEPS_SCRIPT}" "${TMPDIR}/install-required-packages.sh"
+          run cp "${NETDATA_LOCAL_TARBALL_OVERRIDE_DEPS_SCRIPT}" "${ndtmpdir}/install-required-packages.sh"
         else
           fatal "Invalid given dependency file, please check your --local-files parameter options and try again"
         fi
       else
-        download "${PACKAGES_SCRIPT}" "${TMPDIR}/install-required-packages.sh"
+        download "${PACKAGES_SCRIPT}" "${ndtmpdir}/install-required-packages.sh"
       fi
 
-      if [ ! -s "${TMPDIR}/install-required-packages.sh" ]; then
+      if [ ! -s "${ndtmpdir}/install-required-packages.sh" ]; then
         warning "Downloaded dependency installation script is empty."
       else
         progress "Running downloaded script to detect required packages..."
-        run ${sudo} "${bash}" "${TMPDIR}/install-required-packages.sh" ${PACKAGES_INSTALLER_OPTIONS}
+        run ${sudo} "${bash}" "${ndtmpdir}/install-required-packages.sh" ${PACKAGES_INSTALLER_OPTIONS}
         # shellcheck disable=SC2181
         if [ $? -ne 0 ]; then
           warning "It failed to install all the required packages, but installation might still be possible."
@@ -271,26 +308,8 @@ sudo=""
 [ "${UID}" -ne "0" ] && sudo="sudo"
 export PATH="${PATH}:/usr/local/bin:/usr/local/sbin"
 
-# ---------------------------------------------------------------------------------------------------------------------
-# try to update using autoupdater in the first place
-
-updater=""
-[ -x /etc/periodic/daily/netdata-updater ] && updater=/etc/periodic/daily/netdata-updater
-[ -x /etc/cron.daily/netdata-updater ] && updater=/etc/cron.daily/netdata-updater
-if [ -L "${updater}" ]; then
-  # remove old updater (symlink)
-  run ${sudo} rm -f "${updater}"
-  updater=""
-fi
-if [ -n "${updater}" ]; then
-  # attempt to run the updater, to respect any compilation settings already in place
-  progress "Re-installing netdata..."
-  run ${sudo} "${updater}" -f || fatal "Failed to forcefully update netdata"
-  exit 0
-fi
 
 # ---------------------------------------------------------------------------------------------------------------------
-# install required system packages
 
 INTERACTIVE=1
 PACKAGES_INSTALLER_OPTIONS="netdata"
@@ -311,6 +330,12 @@ while [ -n "${1}" ]; do
   elif [ "${1}" = "--stable-channel" ]; then
     RELEASE_CHANNEL="stable"
     NETDATA_INSTALLER_OPTIONS="$NETDATA_INSTALLER_OPTIONS --stable-channel"
+    shift 1
+  elif [ "${1}" = "--allow-duplicate-install" ]; then
+    NETDATA_ALLOW_DUPLICATE_INSTALL=1
+    shift 1
+  elif [ "${1}" = "--reinstall" ]; then
+    NETDATA_REINSTALL=1
     shift 1
   elif [ "${1}" = "--local-files" ]; then
     shift 1
@@ -358,8 +383,67 @@ if [ "${INTERACTIVE}" = "0" ]; then
   NETDATA_INSTALLER_OPTIONS="$NETDATA_INSTALLER_OPTIONS --dont-wait"
 fi
 
-TMPDIR=$(create_tmp_directory)
-cd "${TMPDIR}" || exit 1
+# ---------------------------------------------------------------------------------------------------------------------
+# look for an existing install and try to update that instead if it exists
+
+ndpath="$(command -v netdata 2>/dev/null)"
+if [ -z "$ndpath" ] && [ -x /opt/netdata/bin/netdata ] ; then
+    ndpath="/opt/netdata/bin/netdata"
+fi
+
+if [ -n "$ndpath" ] ; then
+  ndprefix="$(dirname "$(dirname "${ndpath}")")"
+
+  if [ "${ndprefix}" = /usr ] ; then
+    ndprefix="/"
+  fi
+
+  progress "Found existing install of Netdata under: ${ndprefix}"
+
+  if [ -r "${ndprefix}/etc/netdata/.environment" ] ; then
+    ndstatic="$(grep IS_NETDATA_STATIC_BINARY "${ndprefix}/etc/netdata/.environment" | cut -d "=" -f 2 | tr -d \")"
+    if [ -z "${NETDATA_REINSTALL}" ] && [ -z "${NETDATA_LOCAL_TARBALL_OVERRIDE}" ] ; then
+      if [ -x "${ndprefix}/usr/libexec/netdata/netdata-updater.sh" ] ; then
+        progress "Attempting to update existing install instead of creating a new one"
+        if run ${sudo} "${ndprefix}/usr/libexec/netdata/netdata-updater.sh" --not-running-from-cron ; then
+          progress "Updated existing install at ${ndpath}"
+          exit 0
+        else
+          fatal "Failed to update existing Netdata install"
+          exit 1
+        fi
+      else
+        if [ -z "${NETDATA_ALLOW_DUPLICATE_INSTALL}" ] || [ "${ndstatic}" = "yes" ] ; then
+          fatal "Existing installation detected which cannot be safely updated by this script, refusing to continue."
+          exit 1
+        else
+          progress "User explicitly requested duplicate install, proceeding."
+        fi
+      fi
+    else
+      if [ "${ndstatic}" = "no" ] ; then
+        progress "User requested reinstall instead of update, proceeding."
+      else
+        fatal "Existing install is a static install, please use kickstart-static64.sh instead."
+        exit 1
+      fi
+    fi
+  else
+    progress "Existing install appears to be handled manually or through the system package manager."
+    if [ -z "${NETDATA_ALLOW_DUPLICATE_INSTALL}" ] ; then
+      fatal "Existing installation detected which cannot be safely updated by this script, refusing to continue."
+      exit 1
+    else
+      progress "User explicitly requested duplicate install, proceeding."
+    fi
+  fi
+fi
+
+# ---------------------------------------------------------------------------------------------------------------------
+# install required system packages
+
+ndtmpdir=$(create_tmp_directory)
+cd "${ndtmpdir}" || exit 1
 
 dependencies
 
@@ -369,16 +453,16 @@ dependencies
 if [ -z "${NETDATA_LOCAL_TARBALL_OVERRIDE}" ]; then
   set_tarball_urls "${RELEASE_CHANNEL}"
 
-  download "${NETDATA_TARBALL_CHECKSUM_URL}" "${TMPDIR}/sha256sum.txt"
-  download "${NETDATA_TARBALL_URL}" "${TMPDIR}/netdata-latest.tar.gz"
+  download "${NETDATA_TARBALL_CHECKSUM_URL}" "${ndtmpdir}/sha256sum.txt"
+  download "${NETDATA_TARBALL_URL}" "${ndtmpdir}/netdata-latest.tar.gz"
 else
   progress "Installation sources were given as input, running installation using \"${NETDATA_LOCAL_TARBALL_OVERRIDE}\""
-  run cp "${NETDATA_LOCAL_TARBALL_OVERRIDE_CHECKSUM}" "${TMPDIR}/sha256sum.txt"
-  run cp "${NETDATA_LOCAL_TARBALL_OVERRIDE}" "${TMPDIR}/netdata-latest.tar.gz"
+  run cp "${NETDATA_LOCAL_TARBALL_OVERRIDE_CHECKSUM}" "${ndtmpdir}/sha256sum.txt"
+  run cp "${NETDATA_LOCAL_TARBALL_OVERRIDE}" "${ndtmpdir}/netdata-latest.tar.gz"
 fi
 
-if ! grep netdata-latest.tar.gz "${TMPDIR}/sha256sum.txt" | safe_sha256sum -c - > /dev/null 2>&1; then
-  fatal "Tarball checksum validation failed. Stopping netdata installation and leaving tarball in ${TMPDIR}"
+if ! grep netdata-latest.tar.gz "${ndtmpdir}/sha256sum.txt" | safe_sha256sum -c - > /dev/null 2>&1; then
+  fatal "Tarball checksum validation failed. Stopping netdata installation and leaving tarball in ${ndtmpdir}"
 fi
 run tar -xf netdata-latest.tar.gz
 rm -rf netdata-latest.tar.gz > /dev/null 2>&1
@@ -390,9 +474,9 @@ cd netdata-* || fatal "Cannot cd to netdata source tree"
 if [ -x netdata-installer.sh ]; then
   progress "Installing netdata..."
   run ${sudo} ./netdata-installer.sh ${NETDATA_UPDATES} ${NETDATA_INSTALLER_OPTIONS} "${@}" || fatal "netdata-installer.sh exited with error"
-  if [ -d "${TMPDIR}" ] && [ ! "${TMPDIR}" = "/" ]; then
-    run ${sudo} rm -rf "${TMPDIR}" > /dev/null 2>&1
+  if [ -d "${ndtmpdir}" ] && [ ! "${ndtmpdir}" = "/" ]; then
+    run ${sudo} rm -rf "${ndtmpdir}" > /dev/null 2>&1
   fi
 else
-  fatal "Cannot install netdata from source (the source directory does not include netdata-installer.sh). Leaving all files in ${TMPDIR}"
+  fatal "Cannot install netdata from source (the source directory does not include netdata-installer.sh). Leaving all files in ${ndtmpdir}"
 fi

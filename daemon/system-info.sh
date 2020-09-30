@@ -23,14 +23,16 @@ if [ -z "${VIRTUALIZATION}" ]; then
             if grep -q "^flags.*hypervisor" /proc/cpuinfo 2>/dev/null; then
                     VIRTUALIZATION="hypervisor"
                     VIRT_DETECTION="/proc/cpuinfo"
-            elif [ -n "$(command -v dmidecode)" ]; then
-                    # Virtualization detection from https://unix.stackexchange.com/questions/89714/easy-way-to-determine-virtualization-technology
-                    # This only works as root
-                    if dmidecode -s system-product-name 2>/dev/null | grep -q "VMware\|Virtual\|KVM\|Bochs"; then
-                            VIRTUALIZATION="$(dmidecode -s system-product-name)"
-                            VIRT_DETECTION="dmidecode"
-                    fi
+            elif [ -n "$(command -v dmidecode)" ] && dmidecode -s system-product-name 2>/dev/null | grep -q "VMware\|Virtual\|KVM\|Bochs"; then
+                    VIRTUALIZATION="$(dmidecode -s system-product-name)"
+                    VIRT_DETECTION="dmidecode"
+            else
+                    VIRTUALIZATION="none"
             fi
+    fi
+    if [ -z "${VIRTUALIZATION}" ]; then
+      # Output from the command is outside of spec
+      VIRTUALIZATION="unknown"
     fi
 else
     # Passed from outside - probably in docker run
@@ -282,6 +284,9 @@ TOTAL_RAM="unknown"
 RAM_DETECTION="none"
 
 if [ "${KERNEL_NAME}" = FreeBSD ] ; then
+        RAM_DETECTION="sysctl"
+        TOTAL_RAM="$(sysctl -n hw.physmem)"
+elif [ "${KERNEL_NAME}" = Darwin ] ; then
         RAM_DETECTION="sysctl"
         TOTAL_RAM="$(sysctl -n hw.physmem)"
 elif [ -r /proc/meminfo ] ; then

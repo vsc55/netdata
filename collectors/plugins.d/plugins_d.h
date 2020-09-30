@@ -31,10 +31,10 @@
 #define PLUGINSD_KEYWORD_VARIABLE "VARIABLE"
 #define PLUGINSD_KEYWORD_LABEL "LABEL"
 #define PLUGINSD_KEYWORD_OVERWRITE "OVERWRITE"
-#define PLUGINSD_KEYWORD_CONTEXT "CONTEXT"
 #define PLUGINSD_KEYWORD_GUID "GUID"
-#define PLUGINSD_KEYWORD_HOST "HOST"
+#define PLUGINSD_KEYWORD_CONTEXT "CONTEXT"
 #define PLUGINSD_KEYWORD_TOMBSTONE "TOMBSTONE"
+#define PLUGINSD_KEYWORD_HOST "HOST"
 
 
 #define PLUGINSD_LINE_MAX 1024
@@ -80,7 +80,5 @@ extern int pluginsd_initialize_plugin_directories();
 
 extern int config_isspace(char c);
 extern int pluginsd_space(char c);
-extern int pluginsd_update_buffer(char *output, SSL *ssl);
-extern char * pluginsd_get_from_buffer(char *output, int *bytesread, char *input, SSL *ssl, char *src);
 
 #endif /* NETDATA_PLUGINS_D_H */

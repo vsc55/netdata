@@ -26,7 +26,7 @@ documentation](/claim/README.md).
 ## Enable and configure the ACLK
 
 The ACLK is enabled by default, with its settings automatically configured and stored in the Agent's memory. No file is
-created at `var/lib/netdata/cloud.d/cloud.conf` until you either claim a node or create it yourself. The default
+created at `/var/lib/netdata/cloud.d/cloud.conf` until you either claim a node or create it yourself. The default
 configuration uses two settings:
 
 ```conf
@@ -37,6 +37,16 @@ configuration uses two settings:
 
 If your Agent needs to use a proxy to access the internet, you must [set up a proxy for
 claiming](/claim/README.md#claim-through-a-proxy).
+
+You can configure following keys in the `netdata.conf` section `[cloud]`:
+```
+[cloud]
+    statistics = yes
+    query thread count = 2
+```
+
+- `statistics` enables/disables ACLK related statistics and their charts. You can disable this to save some space in the database and slightly reduce memory usage of Netdata Agent.
+- `query thread count` specifies the number of threads to process cloud queries. Increasing this setting is useful for nodes with many children (streaming), which can expect to handle more queries (and/or more complicated queries).
 
 ## Disable the ACLK
 

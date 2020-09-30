@@ -64,6 +64,7 @@ struct instance_config {
 
     const char *name;
     const char *destination;
+    const char *prefix;
 
     int update_every;
     int buffer_on_failures;
@@ -102,7 +103,6 @@ struct mongodb_specific_config {
 };
 
 struct engine_config {
-    const char *prefix;
     const char *hostname;
     int update_every;
 };
@@ -165,6 +165,7 @@ struct instance {
     uv_thread_t thread;
     uv_mutex_t mutex;
     uv_cond_t cond_var;
+    int data_is_ready;
 
     int (*start_batch_formatting)(struct instance *instance);
     int (*start_host_formatting)(struct instance *instance, RRDHOST *host);

@@ -12,8 +12,8 @@ custom_edit_url: https://github.com/netdata/netdata/edit/master/packaging/instal
 This page covers detailed instructions on using and configuring the automatic one-line installation script named
 `kickstart.sh`.
 
-This method is fully automatic on all Linux distributions. To install Netdata from source and get _automatic nightly
-updates_, run the following as your normal user:
+This method is fully automatic on all Linux distributions. To install Netdata from source, including all dependencies
+required to connect to Netdata Cloud, and get _automatic nightly updates_, run the following as your normal user:
 
 ```bash
 bash <(curl -Ss https://my-netdata.io/kickstart.sh)
@@ -28,6 +28,7 @@ The `kickstart.sh` script does the following after being downloaded and run usin
 
 -   Detects the Linux distribution and **installs the required system packages** for building Netdata. Unless you added
     the `--dont-wait` option, it will ask for your permission first.
+-   Checks for an existing installation, and if found updates that instead of creating a new install.
 -   Downloads the latest Netdata source tree to `/usr/src/netdata.git`.
 -   Installs Netdata by running `./netdata-installer.sh` from the source tree, using any [optional
     parameters](#optional-parameters-to-alter-your-installation) you have specified.
@@ -47,6 +48,8 @@ installation. Here are a few important parameters:
 -   `--disable-telemetry`: Opt-out of [anonymous statistics](/docs/anonymous-statistics.md) we use to make
     Netdata better.
 -   `--no-updates`: Prevent automatic updates of any kind.
+-   `--reinstall`: If an existing install is detected, reinstall instead of trying to update it. Note that this
+    cannot be used to change installation types.
 -   `--local-files`: Used for [offline installations](offline.md). Pass four file paths: the Netdata
     tarball, the checksum file, the go.d plugin tarball, and the go.d plugin config tarball, to force kickstart run the
     process using those files. This option conflicts with the `--stable-channel` option. If you set this _and_
@@ -58,15 +61,15 @@ To use `md5sum` to verify the intregity of the `kickstart.sh` script you will do
 run the following:
 
 ```bash
-[ "f1e7aa92ca64b797fdc14df59faad205" = "$(curl -Ss https://my-netdata.io/kickstart.sh | md5sum | cut -d ' ' -f 1)" ] && echo "OK, VALID" || echo "FAILED, INVALID"
+[ "794498f7009012116aafe466d8f544ae" = "$(curl -Ss https://my-netdata.io/kickstart.sh | md5sum | cut -d ' ' -f 1)" ] && echo "OK, VALID" || echo "FAILED, INVALID"
 ```
 
 If the script is valid, this command will return `OK, VALID`.
 
 ## What's next?
 
-When you finish installing Netdata, be sure to visit our [step-by-step tutorial](/docs/step-by-step/step-00.md)
-for a fully-guided tour into Netdata's capabilities and how to configure it according to your needs.
+When you finish installing Netdata, be sure to visit our [step-by-step guide](/docs/guides/step-by-step/step-00.md) for
+a fully-guided tour into Netdata's capabilities and how to configure it according to your needs. 
 
 Or, if you're a monitoring and system administration pro, skip ahead to our [getting started
 guide](/docs/getting-started.md) for a quick overview.

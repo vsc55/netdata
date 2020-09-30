@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 #include "common.h"
+#include "buildinfo.h"
 
 int netdata_zero_metrics_enabled;
 int netdata_anonymous_statistics_enabled;
@@ -36,12 +37,18 @@ void netdata_cleanup_and_exit(int ret) {
         // exit cleanly
 
         // stop everything
-        info("EXIT: stopping master threads...");
+        info("EXIT: stopping static threads...");
         cancel_main_threads();
 
         // free the database
         info("EXIT: freeing database memory...");
+#ifdef ENABLE_DBENGINE
+        rrdeng_prepare_exit(&multidb_ctx);
+#endif
         rrdhost_free_all();
+#ifdef ENABLE_DBENGINE
+        rrdeng_exit(&multidb_ctx);
+#endif
     }
 
     // unlink the pid
@@ -54,7 +61,9 @@ void netdata_cleanup_and_exit(int ret) {
 #ifdef ENABLE_HTTPS
     security_clean_openssl();
 #endif
-
+#ifdef ENABLE_DBENGINE
+    free_global_guid_map();
+#endif
     info("EXIT: all done - netdata is now exiting - bye bye...");
     exit(ret);
 }
@@ -112,6 +121,7 @@ int make_dns_decision(const char *section_name, const char *config_name, const c
     if(strcmp("heuristic",value))
         error("Invalid configuration option '%s' for '%s'/'%s'. Valid options are 'yes', 'no' and 'heuristic'. Proceeding with 'heuristic'",
               value, section_name, config_name);
+
     return simple_pattern_is_potential_name(p);
 }
 
@@ -157,9 +167,9 @@ void web_server_config_options(void)
                                                        "localhost fd* 10.* 192.168.* 172.16.* 172.17.* 172.18.*"
                                                        " 172.19.* 172.20.* 172.21.* 172.22.* 172.23.* 172.24.*"
                                                        " 172.25.* 172.26.* 172.27.* 172.28.* 172.29.* 172.30.*"
-                                                       " 172.31.*"), NULL, SIMPLE_PATTERN_EXACT);
+                                                       " 172.31.* UNKNOWN"), NULL, SIMPLE_PATTERN_EXACT);
     web_allow_netdataconf_dns  =
-        make_dns_decision(CONFIG_SECTION_WEB, "allow netdata.conf by dns", "no", web_allow_mgmt_from);
+        make_dns_decision(CONFIG_SECTION_WEB, "allow netdata.conf by dns", "no", web_allow_netdataconf_from);
     web_allow_mgmt_from        =
         simple_pattern_create(config_get(CONFIG_SECTION_WEB, "allow management from", "localhost"),
                               NULL, SIMPLE_PATTERN_EXACT);
@@ -232,7 +242,7 @@ void cancel_main_threads() {
     usec_t max = 5 * USEC_PER_SEC, step = 100000;
     for (i = 0; static_threads[i].name != NULL ; i++) {
         if(static_threads[i].enabled == NETDATA_MAIN_THREAD_RUNNING) {
-            info("EXIT: Stopping master thread: %s", static_threads[i].name);
+            info("EXIT: Stopping main thread: %s", static_threads[i].name);
             netdata_thread_cancel(*static_threads[i].thread);
             found++;
         }
@@ -254,7 +264,7 @@ void cancel_main_threads() {
     if(found) {
         for (i = 0; static_threads[i].name != NULL ; i++) {
             if (static_threads[i].enabled != NETDATA_MAIN_THREAD_EXITED)
-                error("Master thread %s takes too long to exit. Giving up...", static_threads[i].name);
+                error("Main thread %s takes too long to exit. Giving up...", static_threads[i].name);
         }
     }
     else
@@ -434,6 +444,14 @@ static void log_init(void) {
     setenv("NETDATA_ERRORS_PER_PERIOD",      config_get(CONFIG_SECTION_GLOBAL, "errors to trigger flood protection", ""), 1);
 }
 
+char *initialize_lock_directory_path(char *prefix)
+{
+    char filename[FILENAME_MAX + 1];
+    snprintfz(filename, FILENAME_MAX, "%s/lock", prefix);
+
+    return config_get(CONFIG_SECTION_GLOBAL, "lock directory", filename);
+}
+
 static void backwards_compatible_config() {
     // move [global] options to the [web] section
     config_move(CONFIG_SECTION_GLOBAL, "http port listen backlog",
@@ -527,7 +545,10 @@ static void get_netdata_configured_variables() {
     netdata_configured_web_dir          = config_get(CONFIG_SECTION_GLOBAL, "web files directory",    netdata_configured_web_dir);
     netdata_configured_cache_dir        = config_get(CONFIG_SECTION_GLOBAL, "cache directory",        netdata_configured_cache_dir);
     netdata_configured_varlib_dir       = config_get(CONFIG_SECTION_GLOBAL, "lib directory",          netdata_configured_varlib_dir);
-    netdata_configured_home_dir         = config_get(CONFIG_SECTION_GLOBAL, "home directory",         netdata_configured_home_dir);
+    char *env_home=getenv("HOME");
+    netdata_configured_home_dir         = config_get(CONFIG_SECTION_GLOBAL, "home directory",         env_home?env_home:netdata_configured_home_dir);
+
+    netdata_configured_lock_dir = initialize_lock_directory_path(netdata_configured_varlib_dir);
 
     {
         pluginsd_initialize_plugin_directories();
@@ -557,6 +578,13 @@ static void get_netdata_configured_variables() {
         error("Invalid dbengine disk space %d given. Defaulting to %d.", default_rrdeng_disk_quota_mb, RRDENG_MIN_DISK_SPACE_MB);
         default_rrdeng_disk_quota_mb = RRDENG_MIN_DISK_SPACE_MB;
     }
+
+    default_multidb_disk_quota_mb = (int) config_get_number(CONFIG_SECTION_GLOBAL, "dbengine multihost disk space", compute_multidb_diskspace());
+    if(default_multidb_disk_quota_mb < RRDENG_MIN_DISK_SPACE_MB) {
+        error("Invalid multidb disk space %d given. Defaulting to %d.", default_multidb_disk_quota_mb, default_rrdeng_disk_quota_mb);
+        default_multidb_disk_quota_mb = default_rrdeng_disk_quota_mb;
+    }
+
 #endif
     // ------------------------------------------------------------------------
 
@@ -685,9 +713,21 @@ void set_global_environment() {
     setenv("NETDATA_WEB_DIR"          , verify_required_directory(netdata_configured_web_dir),          1);
     setenv("NETDATA_CACHE_DIR"        , verify_required_directory(netdata_configured_cache_dir),        1);
     setenv("NETDATA_LIB_DIR"          , verify_required_directory(netdata_configured_varlib_dir),       1);
+    setenv("NETDATA_LOCK_DIR"         , netdata_configured_lock_dir, 1);
     setenv("NETDATA_LOG_DIR"          , verify_required_directory(netdata_configured_log_dir),          1);
     setenv("HOME"                     , verify_required_directory(netdata_configured_home_dir),         1);
     setenv("NETDATA_HOST_PREFIX"      , netdata_configured_host_prefix, 1);
+
+    char *default_port = appconfig_get(&netdata_config, CONFIG_SECTION_WEB, "default port", NULL);
+    int clean = 0;
+    if (!default_port) {
+        default_port = strdupz("19999");
+        clean = 1;
+    }
+
+    setenv("NETDATA_LISTEN_PORT"      , default_port, 1);
+    if(clean)
+        freez(default_port);
 
     get_system_timezone();
 
@@ -995,6 +1035,7 @@ int main(int argc, char **argv) {
                             default_rrd_update_every = 1;
                             default_rrd_memory_mode = RRD_MEMORY_MODE_RAM;
                             default_health_enabled = 0;
+                            registry_init();
                             if(rrd_init("unittest", NULL)) {
                                 fprintf(stderr, "rrd_init failed for unittest\n");
                                 return 1;
@@ -1215,6 +1256,11 @@ int main(int argc, char **argv) {
                             /* will trigger a claiming attempt when the agent is initialized */
                             claiming_pending_arguments = optarg + strlen(claim_string);
                         }
+                        else if(strcmp(optarg, "buildinfo") == 0) {
+                            printf("Version: %s %s\n", program_name, program_version);
+                            print_build_info();
+                            return 0;
+                        }
                         else {
                             fprintf(stderr, "Unknown -W parameter '%s'\n", optarg);
                             return help(1);
@@ -1272,6 +1318,9 @@ int main(int argc, char **argv) {
         // files using relative filenames
         if(chdir(netdata_configured_user_config_dir) == -1)
             fatal("Cannot cd to '%s'", netdata_configured_user_config_dir);
+
+        // Get execution path before switching user to avoid permission issues
+        get_netdata_execution_path();
     }
 
     {
@@ -1382,6 +1431,8 @@ int main(int argc, char **argv) {
 
     netdata_threads_init_after_fork((size_t)config_get_number(CONFIG_SECTION_GLOBAL, "pthread stack size", (long)default_stacksize));
 
+    // initialyze internal registry
+    registry_init();
     // fork the spawn server
     spawn_init();
     /*
@@ -1400,6 +1451,9 @@ int main(int argc, char **argv) {
     struct rrdhost_system_info *system_info = calloc(1, sizeof(struct rrdhost_system_info));
     get_system_info(system_info);
 
+#ifdef ENABLE_DBENGINE
+    init_global_guid_map();
+#endif
     if(rrd_init(netdata_configured_hostname, system_info))
         fatal("Cannot initialize localhost instance with name '%s'.", netdata_configured_hostname);
 
@@ -1417,6 +1471,10 @@ int main(int argc, char **argv) {
 
     // Load host labels
     reload_host_labels();
+#ifdef ENABLE_DBENGINE
+    if (localhost->rrd_memory_mode == RRD_MEMORY_MODE_DBENGINE)
+        metalog_commit_update_host(localhost);
+#endif
 
     // ------------------------------------------------------------------------
     // spawn the threads

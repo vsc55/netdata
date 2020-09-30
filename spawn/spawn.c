@@ -14,8 +14,8 @@ static struct spawn_cmd_info *create_spawn_cmd(char *command_to_run)
     struct spawn_cmd_info *cmdinfo;
 
     cmdinfo = mallocz(sizeof(*cmdinfo));
-    assert(0 == uv_cond_init(&cmdinfo->cond));
-    assert(0 == uv_mutex_init(&cmdinfo->mutex));
+    fatal_assert(0 == uv_cond_init(&cmdinfo->cond));
+    fatal_assert(0 == uv_mutex_init(&cmdinfo->mutex));
     cmdinfo->serial = 0; /* invalid */
     cmdinfo->command_to_run = strdupz(command_to_run);
     cmdinfo->exit_status = -1; /* invalid */
@@ -51,8 +51,8 @@ static void init_spawn_cmd_queue(void)
     spawn_cmd_queue.cmd_tree.compar = spawn_cmd_compare;
     spawn_cmd_queue.size = 0;
     spawn_cmd_queue.latest_serial = 0;
-    assert(0 == uv_cond_init(&spawn_cmd_queue.cond));
-    assert(0 == uv_mutex_init(&spawn_cmd_queue.mutex));
+    fatal_assert(0 == uv_cond_init(&spawn_cmd_queue.cond));
+    fatal_assert(0 == uv_mutex_init(&spawn_cmd_queue.mutex));
 }
 
 /*
@@ -72,7 +72,7 @@ uint64_t spawn_enq_cmd(char *command_to_run)
     while ((queue_size = spawn_cmd_queue.size) == SPAWN_MAX_OUTSTANDING) {
         uv_cond_wait(&spawn_cmd_queue.cond, &spawn_cmd_queue.mutex);
     }
-    assert(queue_size < SPAWN_MAX_OUTSTANDING);
+    fatal_assert(queue_size < SPAWN_MAX_OUTSTANDING);
     spawn_cmd_queue.size = queue_size + 1;
 
     serial = ++spawn_cmd_queue.latest_serial; /* 0 is invalid */
@@ -80,11 +80,11 @@ uint64_t spawn_enq_cmd(char *command_to_run)
 
     /* enqueue command */
     avl_ret = avl_insert(&spawn_cmd_queue.cmd_tree, (avl *)cmdinfo);
-    assert(avl_ret == (avl *)cmdinfo);
+    fatal_assert(avl_ret == (avl *)cmdinfo);
     uv_mutex_unlock(&spawn_cmd_queue.mutex);
 
     /* wake up event loop */
-    assert(0 == uv_async_send(&spawn_async));
+    fatal_assert(0 == uv_async_send(&spawn_async));
     return serial;
 }
 
@@ -102,7 +102,7 @@ void spawn_wait_cmd(uint64_t serial, int *exit_status, time_t *exec_run_timestam
     avl_ret = avl_search(&spawn_cmd_queue.cmd_tree, (avl *)&tmp);
     uv_mutex_unlock(&spawn_cmd_queue.mutex);
 
-    assert(avl_ret); /* Could be NULL if more than 1 threads wait for the command */
+    fatal_assert(avl_ret); /* Could be NULL if more than 1 threads wait for the command */
     cmdinfo = (struct spawn_cmd_info *)avl_ret;
 
     uv_mutex_lock(&cmdinfo->mutex);
@@ -126,10 +126,10 @@ void spawn_deq_cmd(struct spawn_cmd_info *cmdinfo)
 
     uv_mutex_lock(&spawn_cmd_queue.mutex);
     queue_size = spawn_cmd_queue.size;
-    assert(queue_size);
+    fatal_assert(queue_size);
     /* dequeue command */
     avl_ret = avl_remove(&spawn_cmd_queue.cmd_tree, (avl *)cmdinfo);
-    assert(avl_ret);
+    fatal_assert(avl_ret);
 
     spawn_cmd_queue.size = queue_size - 1;
 
@@ -190,18 +190,16 @@ struct spawn_cmd_info *spawn_get_unprocessed_cmd(void)
 int create_spawn_server(uv_loop_t *loop, uv_pipe_t *spawn_channel, uv_process_t *process)
 {
     uv_process_options_t options = {0};
-    size_t exepath_size;
-    char exepath[FILENAME_MAX];
     char *args[3];
     int ret;
 #define SPAWN_SERVER_DESCRIPTORS (3)
     uv_stdio_container_t stdio[SPAWN_SERVER_DESCRIPTORS];
+    struct passwd *passwd = NULL;
+    char *user = NULL;
 
-    exepath_size = sizeof(exepath);
-    ret = uv_exepath(exepath, &exepath_size);
-    assert(ret == 0);
+    passwd = getpwuid(getuid());
+    user = (passwd && passwd->pw_name) ? passwd->pw_name : "";
 
-    exepath[exepath_size] = '\0';
     args[0] = exepath;
     args[1] = SPAWN_SERVER_COMMAND_LINE_ARGUMENT;
     args[2] = NULL;
@@ -221,7 +219,10 @@ int create_spawn_server(uv_loop_t *loop, uv_pipe_t *spawn_channel, uv_process_t 
     stdio[2].data.fd = 2 /* UV_STDERR_FD */;
 
     ret = uv_spawn(loop, process, &options); /* execute the netdata binary again as the netdata user */
-    assert(ret == 0);
+    if (0 != ret) {
+        error("uv_spawn (process: \"%s\") (user: %s) failed (%s).", exepath, user, uv_strerror(ret));
+        fatal("Cannot start netdata without the spawn server.");
+    }
 
     return ret;
 }
